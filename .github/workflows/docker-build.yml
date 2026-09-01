@@ -12,7 +12,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/ledgera-backend
+  IMAGE_NAME: ${{ github.repository }}/revive-backend
 
 jobs:
   build-and-push:
@@ -89,4 +89,3 @@ jobs:
           echo "Development image pushed successfully"
           echo "Production image pushed successfully"
           echo "Images available at: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
-
