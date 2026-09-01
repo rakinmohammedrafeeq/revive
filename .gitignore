@@ -1,0 +1,218 @@
+# ===============================
+# SECURITY & SECRETS 🔐
+# ===============================
+# Environment files (ALL locations)
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+
+# API Keys & Secrets
+**/secrets/
+**/secret/
+*.key
+*.pem
+*.p12
+*.pfx
+*.cer
+*.crt
+*.der
+id_rsa
+id_rsa.pub
+*.asc
+*.gpg
+
+# Credentials & Config
+credentials.json
+credentials.yml
+credentials.yaml
+**/credentials/
+secrets.json
+secrets.yml
+secrets.yaml
+config.local.*
+*.local.json
+*.local.yml
+*.local.yaml
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+*.sql.gz
+*.dump
+database.yml
+database.json
+
+# AWS & Cloud
+.aws/
+*.pem
+aws-credentials
+gcloud-credentials.json
+azure-credentials.json
+
+# ===============================
+# IDE & EDITORS
+# ===============================
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+*.sublime-project
+*.sublime-workspace
+.atom/
+.brackets.json
+*.code-workspace
+
+# ===============================
+# OS FILES
+# ===============================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# ===============================
+# LOGS & DEBUG
+# ===============================
+*.log
+*.out
+*.err
+logs/
+**/logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+pnpm-debug.log*
+debug.log
+error.log
+combined.log
+
+# ===============================
+# ENVIRONMENT (IMPORTANT 🔐)
+# ===============================
+.env
+.env.*
+!.env.example
+!.env.template
+.env.backup
+.env.save
+.envrc
+.envrc.*
+
+# ===============================
+# JAVA / SPRING BOOT
+# ===============================
+target/
+backend/target/
+**/target/
+*.class
+*.jar
+*.war
+*.nar
+*.ear
+.mvn/
+**/hs_err_pid*
+mvnw-dist.zip
+.factorypath
+.apt_generated
+.apt_generated_tests
+
+# ===============================
+# NODE / FRONTEND
+# ===============================
+node_modules/
+**/node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+dist/
+build/
+.next/
+.nuxt/
+.cache/
+.parcel-cache/
+.npm
+.eslintcache
+.stylelintcache
+.yarn/
+.pnp.*
+yarn.lock
+package-lock.json
+pnpm-lock.yaml
+
+# ===============================
+# BUILD / CACHE
+# ===============================
+dist/
+build/
+coverage/
+.cache/
+*.tsbuildinfo
+.turbo/
+
+# ===============================
+# TEMP FILES
+# ===============================
+*.tmp
+*.temp
+*.swp
+*.swo
+*.swn
+*.bak
+*.backup
+*~
+.#*
+\#*\#
+
+# ===============================
+# DOCKER
+# ===============================
+Dockerfile~
+docker-compose.override.yml
+.dockerignore~
+oradata/
+
+# ===============================
+# TESTING
+# ===============================
+coverage/
+.nyc_output/
+*.lcov
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# ===============================
+# MISC
+# ===============================
+*.pid
+*.seed
+*.pid.lock
+.grunt
+bower_components
+.lock-wscript
+.serverless/
+.fusebox/
+.dynamodb/
+.tern-port
+.vuepress/dist
+.temp
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/

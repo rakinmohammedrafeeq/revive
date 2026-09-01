@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: ledgera-postgres-dev
+    environment:
+      POSTGRES_DB: ledgera
+      POSTGRES_USER: ledgera
+      POSTGRES_PASSWORD: ledgera123
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - ledgera-postgres-data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ledgera -d ledgera"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - ledgera-network
+
+volumes:
+  ledgera-postgres-data:
+    driver: local
+
+networks:
+  ledgera-network:
+    driver: bridge

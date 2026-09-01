@@ -1,0 +1,18 @@
+{
+  "name": "Ledgera — AI-Powered Finance Tracking Platform",
+  "short_name": "Ledgera",
+  "description": "AI-powered finance tracking with smart categorization, receipt scanning, AI financial advisor, and team workspaces. Track expenses, analyze spending, and collaborate with your team.",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "theme_color": "#6366f1",
+  "background_color": "#0f0f14",
+  "display": "standalone",
+  "start_url": "/",
+  "scope": "/"
+}

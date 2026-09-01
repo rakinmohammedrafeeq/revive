@@ -1,0 +1,64 @@
+# ============================================================
+# Production Dockerfile for Ledgera Backend
+# Optimized multi-stage build for Spring Boot 3.2.5
+# Java 17 | Maven | Production-Ready | Minimal Image Size
+# ============================================================
+
+# Stage 1: Build Stage (Maven build with JDK)
+FROM maven:3.9-eclipse-temurin-17-alpine AS builder
+
+WORKDIR /build
+
+# Copy pom.xml for dependency caching
+COPY pom.xml .
+
+# Download dependencies (cached layer)
+RUN mvn dependency:go-offline -B -q
+
+# Copy source code
+COPY src ./src
+
+# Build the application (skip tests for production)
+RUN mvn clean package -B -q -DskipTests && \
+    # Extract the built JAR name for easier copying
+    mv target/ledgera-backend-*.jar target/app.jar
+
+# ============================================================
+# Stage 2: Runtime Stage (minimal JRE image)
+FROM eclipse-temurin:17-jre-alpine
+
+# Install curl for health checks
+RUN apk add --no-cache curl
+
+WORKDIR /app
+
+# Create non-root user for security
+RUN addgroup -g 1001 appgroup && \
+    adduser -D -u 1001 -G appgroup appuser && \
+    chown -R appuser:appgroup /app
+
+# Copy built JAR from builder stage
+COPY --from=builder --chown=appuser:appgroup /build/target/app.jar app.jar
+
+# Switch to non-root user
+USER appuser
+
+# Expose port (Render will override with PORT env var)
+EXPOSE 8080
+
+# Health check endpoint
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:${PORT:-8080}/healthz || exit 1
+
+# JVM optimization flags for production (512MB RAM constraint)
+ENV JAVA_OPTS="-Xmx350m \
+    -Xms128m \
+    -XX:+UseG1GC \
+    -XX:MaxGCPauseMillis=100 \
+    -XX:+UseStringDeduplication \
+    -XX:+OptimizeStringConcat \
+    -Djava.security.egd=file:/dev/./urandom \
+    -Dspring.jmx.enabled=false"
+
+# Run the application with dynamic port support
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar --server.port=${PORT:-8080}"]

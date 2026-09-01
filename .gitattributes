@@ -1,0 +1,77 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Source code
+*.java text diff=java
+*.ts text diff=typescript
+*.tsx text diff=typescript
+*.js text diff=javascript
+*.jsx text diff=javascript
+*.css text diff=css
+*.scss text diff=css
+*.sql text
+*.xml text
+*.json text
+*.yml text
+*.yaml text
+*.md text
+*.txt text
+*.properties text
+
+# Scripts
+*.sh text eol=lf
+*.bash text eol=lf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Documentation
+*.markdown text
+*.mdx text
+README text
+LICENSE text
+AUTHORS text
+CHANGELOG text
+CONTRIBUTING text
+
+# Graphics
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg text
+*.webp binary
+
+# Fonts
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.otf binary
+
+# Archives
+*.zip binary
+*.tar binary
+*.gz binary
+*.7z binary
+*.rar binary
+
+# Java specific
+*.jar binary
+*.class binary
+*.war binary
+*.ear binary
+
+# Maven
+mvnw text eol=lf
+mvnw.cmd text eol=crlf
+
+# Node
+package-lock.json -diff
+yarn.lock -diff
+
+# Exclude files from export
+.gitattributes export-ignore
+.gitignore export-ignore
+.github export-ignore
