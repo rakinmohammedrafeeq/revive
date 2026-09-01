@@ -110,7 +110,7 @@ export function LoginPage() {
 
       {/* ── Header ───────────────────────────────────────────── */}
       <div className="mb-8 space-y-4 text-center">
-        <img src={APP_LOGO_SRC} alt="Ledgera" className="mx-auto h-14 w-14" loading="eager" />
+        <img src={APP_LOGO_SRC} alt="Revive" className="mx-auto h-14 w-14" loading="eager" />
         <div className="space-y-1.5">
           <h1 className="text-2xl font-bold tracking-tight text-white">
             Welcome back

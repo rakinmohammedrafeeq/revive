@@ -15,7 +15,7 @@ export function TermsAndPrivacyPage() {
               Back to Register
             </Button>
           </Link>
-          <img src={APP_LOGO_SRC} alt="Ledgera" className="h-8" />
+          <img src={APP_LOGO_SRC} alt="Revive" className="h-8" />
         </div>
 
         <Card className="border-border/60 bg-card/60 backdrop-blur-sm">
@@ -33,7 +33,7 @@ export function TermsAndPrivacyPage() {
               <div className="space-y-3">
                 <h3 className="text-base font-medium text-foreground">1. Acceptance of Terms</h3>
                 <p className="text-muted-foreground">
-                  By accessing and using Ledgera, you accept and agree to be bound by the terms and provision of this agreement. 
+                  By accessing and using Revive, you accept and agree to be bound by the terms and provision of this agreement. 
                   If you do not agree to these terms, please do not use this service.
                 </p>
               </div>
@@ -41,7 +41,7 @@ export function TermsAndPrivacyPage() {
               <div className="space-y-3">
                 <h3 className="text-base font-medium text-foreground">2. Use of Service</h3>
                 <p className="text-muted-foreground">
-                  Ledgera provides financial record management and workspace collaboration tools. You agree to:
+                  Revive provides financial record management and workspace collaboration tools. You agree to:
                 </p>
                 <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                   <li>Provide accurate and complete information during registration</li>
@@ -63,7 +63,7 @@ export function TermsAndPrivacyPage() {
               <div className="space-y-3">
                 <h3 className="text-base font-medium text-foreground">4. Data Ownership</h3>
                 <p className="text-muted-foreground">
-                  You retain all rights to the financial data you input into Ledgera. We do not claim ownership of your data. 
+                  You retain all rights to the financial data you input into Revive. We do not claim ownership of your data. 
                   You grant us permission to store and process your data to provide the service.
                 </p>
               </div>
@@ -79,7 +79,7 @@ export function TermsAndPrivacyPage() {
               <div className="space-y-3">
                 <h3 className="text-base font-medium text-foreground">6. Limitation of Liability</h3>
                 <p className="text-muted-foreground">
-                  Ledgera is provided "as is" without warranties of any kind. We are not liable for any damages arising 
+                  Revive is provided "as is" without warranties of any kind. We are not liable for any damages arising 
                   from the use or inability to use the service.
                 </p>
               </div>
@@ -206,8 +206,8 @@ export function TermsAndPrivacyPage() {
                 <h3 className="text-base font-medium text-foreground">11. Contact Us</h3>
                 <p className="text-muted-foreground">
                   If you have any questions about these Terms or Privacy Policy, please contact us at:{' '}
-                  <a href="mailto:support@ledgera.com" className="text-primary hover:underline">
-                    support@ledgera.com
+                  <a href="mailto:rakinmohammedrafeeq@gmail.com" className="text-primary hover:underline">
+                    rakinmohammedrafeeq@gmail.com
                   </a>
                 </p>
               </div>
@@ -217,7 +217,7 @@ export function TermsAndPrivacyPage() {
 
             <div className="border-t pt-6">
               <p className="text-center text-xs text-muted-foreground">
-                By using Ledgera, you acknowledge that you have read and understood these Terms of Service and Privacy Policy.
+                By using Revive, you acknowledge that you have read and understood these Terms of Service and Privacy Policy.
               </p>
             </div>
           </CardContent>

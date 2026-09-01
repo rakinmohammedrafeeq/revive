@@ -1,5 +1,5 @@
 # ============================================================
-# Multi-Stage Dockerfile for Ledgera Backend (Spring Boot 3.2.5)
+# Multi-Stage Dockerfile for Revive Backend (Spring Boot 3.2.5)
 # Java 17 | Maven | Development & Testing
 # ============================================================
 
@@ -19,7 +19,7 @@ COPY src ./src
 
 # Build the application (skip tests for faster builds)
 RUN mvn clean package -B -q -DskipTests && \
-    mv target/ledgera-backend-*.jar target/app.jar
+    mv target/revive-backend-*.jar target/app.jar
 
 # ============================================================
 # Stage 2: Runtime Stage (lightweight JRE image)

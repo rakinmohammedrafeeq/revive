@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
 export default defineConfig({
-  // Shared static assets: E:\ledgera\public (logo, favicon, OG images)
+  // Shared static assets: public (logo, favicon, OG images)
   publicDir: path.resolve(__dirname, '..', 'public'),
   plugins: [react(), tailwindcss()],
   resolve: {

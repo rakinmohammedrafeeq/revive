@@ -1,7 +1,7 @@
 services:
   # Backend Service
   - type: web
-    name: ledgera-backend
+    name: revive-backend
     runtime: java
     plan: starter  # Upgrade from free tier (512MB) to starter (512MB but better performance)
     buildCommand: ./mvnw clean package -DskipTests
@@ -27,7 +27,7 @@ services:
       - key: GOOGLE_CLIENT_SECRET
         sync: false
       - key: GOOGLE_REDIRECT_URI
-        value: https://ledgera-backend.onrender.com/login/oauth2/code/google
+        value: https://revive-backend.onrender.com/login/oauth2/code/google
       - key: APP_OAUTH2_REDIRECT_URI
         sync: false
       - key: RESEND_API_KEY
@@ -35,7 +35,7 @@ services:
       - key: RESEND_FROM_EMAIL
         value: onboarding@resend.dev
       - key: RESEND_FROM_NAME
-        value: Ledgera
+        value: Revive
       - key: APP_BASE_URL
         sync: false
       - key: GEMINI_API_KEY
@@ -50,7 +50,7 @@ services:
         sync: false
       - key: CLOUDINARY_API_SECRET
         sync: false
-      - key: LEDGERA_SEED_ADMIN
+      - key: REVIVE_SEED_ADMIN
         value: true
       - key: DISABLE_EMBEDDINGS
         value: true

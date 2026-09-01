@@ -1,5 +1,5 @@
 # ============================================================
-# Production Dockerfile for Ledgera Backend
+# Production Dockerfile for Revive Backend
 # Optimized multi-stage build for Spring Boot 3.2.5
 # Java 17 | Maven | Production-Ready | Minimal Image Size
 # ============================================================
@@ -21,7 +21,7 @@ COPY src ./src
 # Build the application (skip tests for production)
 RUN mvn clean package -B -q -DskipTests && \
     # Extract the built JAR name for easier copying
-    mv target/ledgera-backend-*.jar target/app.jar
+    mv target/revive-backend-*.jar target/app.jar
 
 # ============================================================
 # Stage 2: Runtime Stage (minimal JRE image)

@@ -68,9 +68,9 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
                 "flex items-center gap-2.5 min-w-0 overflow-hidden",
                 isCollapsed ? "justify-center pl-6" : "flex-1"
               )}>
-                <img src={APP_LOGO_SRC} alt="Ledgera" className="h-8 w-8 flex-shrink-0" loading="eager" />
+                <img src={APP_LOGO_SRC} alt="Revive" className="h-8 w-8 flex-shrink-0" loading="eager" />
                 <span className={`text-lg font-semibold tracking-tight whitespace-nowrap transition-all duration-300 ${isCollapsed ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100 overflow-hidden text-ellipsis'}`}>
-                  Ledgera
+                  Revive
                 </span>
               </div>
               {/* Hide collapse button in mobile drawer, only show on desktop */}

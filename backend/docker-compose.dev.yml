@@ -3,30 +3,30 @@ version: '3.8'
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: ledgera-postgres-dev
+    container_name: revive-postgres-dev
     environment:
-      POSTGRES_DB: ledgera
-      POSTGRES_USER: ledgera
-      POSTGRES_PASSWORD: ledgera123
+      POSTGRES_DB: revive
+      POSTGRES_USER: revive
+      POSTGRES_PASSWORD: revive123
       POSTGRES_INITDB_ARGS: "-E UTF8"
     ports:
       - "5432:5432"
     volumes:
-      - ledgera-postgres-data:/var/lib/postgresql/data
+      - revive-postgres-data:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ledgera -d ledgera"]
+      test: ["CMD-SHELL", "pg_isready -U revive -d revive"]
       interval: 10s
       timeout: 5s
       retries: 5
     restart: unless-stopped
     networks:
-      - ledgera-network
+      - revive-network
 
 volumes:
-  ledgera-postgres-data:
+  revive-postgres-data:
     driver: local
 
 networks:
-  ledgera-network:
+  revive-network:
     driver: bridge

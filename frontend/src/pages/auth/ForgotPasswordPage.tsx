@@ -78,7 +78,7 @@ export function ForgotPasswordPage() {
             <div className="space-y-1">
               <p className="text-sm font-medium text-white/80">Check your inbox</p>
               <p className="text-xs text-white/40">
-                Look for an email from Ledgera with reset instructions
+                Look for an email from Revive with reset instructions
               </p>
             </div>
           </div>

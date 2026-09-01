@@ -76,11 +76,11 @@ export function LandingPage() {
             <div className="flex items-center gap-2.5">
               <img
                 src={APP_LOGO_SRC}
-                alt="Ledgera"
+                alt="Revive"
                 className="h-9 w-9"
                 loading="eager"
               />
-              <span className="text-lg font-semibold tracking-tight">Ledgera</span>
+              <span className="text-lg font-semibold tracking-tight">Revive</span>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">

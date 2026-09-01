@@ -103,7 +103,7 @@ export function RegisterPage() {
 
       {/* ── Header ───────────────────────────────────────────── */}
       <div className="space-y-3 text-center">
-        <img src={APP_LOGO_SRC} alt="Ledgera" className="mx-auto h-12 w-12" loading="eager" />
+        <img src={APP_LOGO_SRC} alt="Revive" className="mx-auto h-12 w-12" loading="eager" />
         <div className="space-y-1.5">
           <h1 className="text-2xl font-bold tracking-tight text-white">Create your account</h1>
           <p className="text-sm text-white/40">

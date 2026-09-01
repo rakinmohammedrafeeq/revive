@@ -23,7 +23,7 @@ export function LedgeraSpinner({
       {/* App icon */}
       <img
         src={APP_LOGO_SRC}
-        alt="Ledgera"
+        alt="Revive"
         className="h-[65%] w-[65%] select-none rounded-lg"
         draggable={false}
         loading="eager"

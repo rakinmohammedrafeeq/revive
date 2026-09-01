@@ -64,8 +64,8 @@ export function AuthLayout() {
 
               {/* Logo */}
               <div className="flex items-center gap-2.5">
-                <img src={APP_LOGO_SRC} alt="Ledgera" className="h-10 w-10" loading="eager" />
-                <span className="text-xl font-semibold tracking-tight">Ledgera</span>
+                <img src={APP_LOGO_SRC} alt="Revive" className="h-10 w-10" loading="eager" />
+                <span className="text-xl font-semibold tracking-tight">Revive</span>
               </div>
 
               {/* Headline */}

@@ -62,7 +62,7 @@ export function OAuth2CallbackPage() {
       <div className="w-full max-w-sm space-y-6 text-center">
         <img 
           src={APP_LOGO_SRC} 
-          alt="Ledgera" 
+          alt="Revive" 
           className="mx-auto h-16 w-16 animate-pulse" 
         />
         
