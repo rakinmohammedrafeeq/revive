@@ -1,7 +1,7 @@
 import { APP_LOGO_SRC } from '@/config/brandAssets'
 import { cn } from '@/lib/utils'
 
-export function LedgeraSpinner({
+export function ReviveSpinner({
   size = 40,
   className,
   alt = 'Loading',
@@ -32,5 +32,6 @@ export function LedgeraSpinner({
   )
 }
 
-/** @deprecated Use LedgeraSpinner instead */
-export const FintrixSpinner = LedgeraSpinner
+/** @deprecated Use ReviveSpinner instead */
+export const LedgeraSpinner = ReviveSpinner
+export const FintrixSpinner = ReviveSpinner

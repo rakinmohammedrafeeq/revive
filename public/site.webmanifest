@@ -1,7 +1,7 @@
 {
-  "name": "Revive — AI-Powered Finance Tracking Platform",
+  "name": "Revive — AI Revenue Recovery",
   "short_name": "Revive",
-  "description": "AI-powered finance tracking with smart categorization, receipt scanning, AI financial advisor, and team workspaces. Track expenses, analyze spending, and collaborate with your team.",
+  "description": "AI-powered revenue recovery platform. Detect failed payments, diagnose issues, and recover revenue intelligently with policy-based guardrails.",
   "icons": [
     {
       "src": "/icon.png",
@@ -10,7 +10,7 @@
       "purpose": "any maskable"
     }
   ],
-  "theme_color": "#6366f1",
+  "theme_color": "#10b981",
   "background_color": "#0f0f14",
   "display": "standalone",
   "start_url": "/",

@@ -1,6 +1,6 @@
 /**
  * Centralized theme and style configuration for Recharts.
- * Gold-forward palette — no emerald/green accents.
+ * Emerald/green revenue recovery palette with gold accents.
  */
 
 export const CHART_PALETTE = {
@@ -19,6 +19,10 @@ export const CHART_PALETTE = {
   primary: 'var(--color-primary)',
   income: 'var(--color-chart-1)',
   expense: 'var(--color-chart-2)',
+
+  /** Recovery-specific colors */
+  success: 'var(--color-success)',
+  warning: 'var(--color-warning)',
 
   foreground: 'var(--foreground)',
   mutedForeground: 'var(--muted-foreground)',

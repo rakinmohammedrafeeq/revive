@@ -18,7 +18,7 @@ function getSystemTheme(): 'dark' | 'light' {
 
 function getInitialTheme(): Theme {
   try {
-    const stored = localStorage.getItem('ledgera-theme') as Theme | null
+    const stored = localStorage.getItem('revive-theme') as Theme | null
     if (stored === 'light' || stored === 'dark' || stored === 'system') return stored
   } catch {
     // ignore
@@ -45,7 +45,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
     
     try {
-      localStorage.setItem('ledgera-theme', theme)
+      localStorage.setItem('revive-theme', theme)
     } catch {
       // ignore
     }

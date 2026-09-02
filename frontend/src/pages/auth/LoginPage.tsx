@@ -116,7 +116,7 @@ export function LoginPage() {
             Welcome back
           </h1>
           <p className="text-sm text-white/40">
-            Sign in with Google or email to access your workspace
+            Sign in to see what Revive caught
           </p>
         </div>
       </div>

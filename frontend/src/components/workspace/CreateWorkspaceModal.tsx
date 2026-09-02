@@ -60,7 +60,7 @@ export const CreateWorkspaceModal: React.FC<CreateWorkspaceModalProps> = ({ isOp
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., My Company, Personal Finance"
+              placeholder="e.g., My Company, Production Recovery"
               className="w-full px-4 py-2.5 bg-background border border-input rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
               disabled={loading}
               autoFocus

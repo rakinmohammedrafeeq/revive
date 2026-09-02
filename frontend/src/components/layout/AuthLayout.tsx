@@ -14,18 +14,18 @@ import { AppFooter } from '@/components/layout/AppFooter'
 const features = [
   {
     icon: CreditCard,
-    title: 'Expense tracking',
-    desc: 'Log and categorise every transaction instantly.',
+    title: 'Real-time detection',
+    desc: 'Captures every failed payment instantly.',
   },
   {
     icon: BarChart3,
-    title: 'Borrow & lend ledger',
-    desc: 'Track money owed with full history.',
+    title: 'AI diagnosis',
+    desc: 'Understands why payments fail.',
   },
   {
     icon: TrendingUp,
-    title: 'Insights & reports',
-    desc: 'Visual trends across your finances.',
+    title: 'Smart recovery',
+    desc: 'Brings revenue back intelligently.',
   },
   {
     icon: Lock,
@@ -71,13 +71,13 @@ export function AuthLayout() {
               {/* Headline */}
               <div className="space-y-3">
                 <h2 className="text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
-                  Your finances,{' '}
+                  Revenue recovery,{' '}
                   <span className="bg-gradient-to-r from-primary/90 to-primary bg-clip-text text-transparent">
-                    finally organised
+                    powered by AI
                   </span>
                 </h2>
                 <p className="max-w-sm text-[15px] leading-relaxed text-white/45">
-                  Track expenses, manage debts, and stay in control of your finances — all in one workspace.
+                  Detect failed payments, diagnose the cause, and recover lost revenue — all automated with policy guardrails.
                 </p>
               </div>
 

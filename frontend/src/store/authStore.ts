@@ -1,8 +1,8 @@
 import type { AuthResponse, User } from '@/types/auth'
 
-const TOKEN_KEY = 'ledgera_token'
-const USER_KEY = 'ledgera_user'
-const AUTH_EVENT = 'ledgera:auth-changed'
+const TOKEN_KEY = 'revive_token'
+const USER_KEY = 'revive_user'
+const AUTH_EVENT = 'revive:auth-changed'
 
 export interface StoredAuthState {
   token: string

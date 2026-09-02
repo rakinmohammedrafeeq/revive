@@ -11,9 +11,11 @@ interface StatsCardProps {
     isPositive: boolean
   }
   variant?: 'default' | 'success' | 'warning' | 'destructive'
+  format?: 'currency' | 'percentage' | 'number'
+  className?: string
 }
 
-export function StatsCard({ title, value, icon: Icon, trend, variant = 'default' }: StatsCardProps) {
+export function StatsCard({ title, value, icon: Icon, trend, variant = 'default', format = 'currency', className }: StatsCardProps) {
   const variantStyles = {
     default: 'bg-primary/12 text-primary ring-1 ring-primary/20',
     success: 'bg-success/12 text-success ring-1 ring-success/20',
@@ -21,8 +23,23 @@ export function StatsCard({ title, value, icon: Icon, trend, variant = 'default'
     destructive: 'bg-destructive/12 text-destructive ring-1 ring-destructive/20',
   }
 
+  const formatValue = (val: number) => {
+    switch (format) {
+      case 'percentage':
+        return `${val.toFixed(1)}%`
+      case 'number':
+        return Math.round(val).toString()
+      case 'currency':
+      default:
+        return formatCurrency(val)
+    }
+  }
+
   return (
-    <Card className="group relative overflow-hidden border-border/60 bg-card/60 backdrop-blur-sm transition-all duration-200 hover:-translate-y-px hover:border-primary/25 hover:shadow-[0_0_0_1px_hsl(var(--primary)/0.2),0_10px_30px_rgba(0,0,0,0.28)]">
+    <Card className={cn(
+      "group relative overflow-hidden border-border/60 bg-card/60 backdrop-blur-sm transition-all duration-200 hover:-translate-y-px hover:border-primary/25 hover:shadow-[0_0_0_1px_hsl(var(--primary)/0.2),0_10px_30px_rgba(0,0,0,0.28)]",
+      className
+    )}>
       {/* soft accent wash */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_40%_at_20%_0%,hsl(var(--primary)/0.12),transparent_70%)] opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
 
@@ -30,7 +47,7 @@ export function StatsCard({ title, value, icon: Icon, trend, variant = 'default'
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0 space-y-1">
             <p className="text-sm font-medium text-muted-foreground/90">{title}</p>
-            <p className="truncate text-2xl font-bold tracking-tight">{formatCurrency(value)}</p>
+            <p className="truncate text-2xl font-bold tracking-tight">{formatValue(value)}</p>
             {trend && (
               <p className={cn(
                 'text-xs font-medium',

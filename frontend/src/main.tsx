@@ -17,7 +17,7 @@ const queryClient = new QueryClient({
   },
 })
 
-// Ensure user-scoped data (expenses, transactions, etc.) is refreshed on login/logout
+// Ensure user-scoped data (recovery cases, policies, etc.) is refreshed on login/logout
 // without requiring a full page reload.
 onAuthStateChange(() => {
   // Remove cached data and cancel in-flight requests so the next screen shows

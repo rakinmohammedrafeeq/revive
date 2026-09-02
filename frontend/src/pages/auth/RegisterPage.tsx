@@ -105,9 +105,9 @@ export function RegisterPage() {
       <div className="space-y-3 text-center">
         <img src={APP_LOGO_SRC} alt="Revive" className="mx-auto h-12 w-12" loading="eager" />
         <div className="space-y-1.5">
-          <h1 className="text-2xl font-bold tracking-tight text-white">Create your account</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-white">Join Revive</h1>
           <p className="text-sm text-white/40">
-            Get started with AI-powered finance tracking. Sign up with Google or email.
+            Start recovering revenue. Sign up with Google or email.
           </p>
         </div>
       </div>
@@ -230,7 +230,7 @@ export function RegisterPage() {
           {mutation.isPending && (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           )}
-          Create account
+          Let's go
         </Button>
       </form>
 
@@ -278,7 +278,7 @@ export function RegisterPage() {
           to="/login"
           className="font-medium text-primary/80 transition-colors hover:text-primary"
         >
-          Sign in
+          Sign in instead
         </Link>
       </p>
     </div>

@@ -93,7 +93,7 @@ export function AiInsights() {
   // Compact loading state
   if (loading && !insights) {
     return (
-      <Card className="border-border/60 bg-card/60 backdrop-blur-sm">
+      <Card className="glass-card">
         <CardContent className="py-6">
           <div className="flex items-center gap-3">
             <Sparkles className="h-5 w-5 text-primary flex-shrink-0" />
@@ -114,7 +114,7 @@ export function AiInsights() {
     const isRateLimit = error.includes('rate limit') || error.includes('quota')
     
     return (
-      <Card className="border-border/60 bg-card/60 backdrop-blur-sm">
+      <Card className="glass-card">
         <CardContent className="py-6">
           <div className="flex items-start gap-3">
             <Sparkles className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
@@ -151,7 +151,7 @@ export function AiInsights() {
   // Compact preview card
   return (
     <>
-      <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-primary/10 backdrop-blur-sm hover:shadow-md transition-shadow">
+      <Card className="glass-card emerald-glow">
         <CardContent className="py-6">
           <div className="flex items-start gap-3">
             <Sparkles className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
