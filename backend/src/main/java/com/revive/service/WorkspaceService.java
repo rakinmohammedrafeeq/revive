@@ -204,6 +204,24 @@ public class WorkspaceService {
         workspaceRepository.delete(workspace);
     }
 
+    /**
+     * Get user's primary (current) workspace.
+     * Used by recovery controllers to scope data to the correct workspace.
+     */
+    @Transactional(readOnly = true)
+    public Workspace getUserPrimaryWorkspace(User user) {
+        // First try the user's current workspace
+        if (user.getCurrentWorkspace() != null) {
+            return user.getCurrentWorkspace();
+        }
+        // Fall back to first workspace the user is a member of
+        List<Workspace> workspaces = workspaceRepository.findWorkspacesByUserId(user.getId());
+        if (workspaces.isEmpty()) {
+            throw new RuntimeException("User has no workspace. Please create or join a workspace first.");
+        }
+        return workspaces.get(0);
+    }
+
     @Transactional
     public WorkspaceResponse switchWorkspace(Long workspaceId) {
         User currentUser = currentUserService.requireCurrentUser();

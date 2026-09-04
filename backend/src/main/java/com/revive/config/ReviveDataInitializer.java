@@ -87,34 +87,89 @@ public class ReviveDataInitializer {
             policyRepository.save(defaultPolicy);
             logger.info("Created default recovery policy");
 
-            // Create sample failed payments
+            // Create realistic sample failed payments
+            LocalDateTime now = LocalDateTime.now();
+            
+            // Payment 1: Temporary issuer decline - high recovery probability
             FailedPayment payment1 = createSampleFailedPayment(
-                    workspace, "pay_order_001", "cust_12345",
-                    new BigDecimal("2500.00"), "insufficient_funds",
-                    "INSUFFICIENT_FUNDS", "UPI");
+                    workspace, "pay_12500_001", "cust_acme_corp",
+                    new BigDecimal("12500.00"), "Temporary issuer decline",
+                    "issuer_declined_temp", "CARD");
+            payment1.setCustomerName("Acme Corp");
+            payment1.setCustomerEmail("billing@acmecorp.com");
+            payment1.setFailedAt(now.minusMinutes(12));
             failedPaymentRepository.save(payment1);
 
+            // Payment 2: Insufficient funds
             FailedPayment payment2 = createSampleFailedPayment(
-                    workspace, "pay_order_002", "cust_67890",
-                    new BigDecimal("5000.00"), "card_declined",
-                    "CARD_DECLINED", "CARD");
+                    workspace, "pay_8200_002", "cust_techsol",
+                    new BigDecimal("8200.00"), "Insufficient funds",
+                    "insufficient_funds", "UPI");
+            payment2.setCustomerName("Tech Solutions Inc");
+            payment2.setCustomerEmail("payments@techsol.com");
+            payment2.setFailedAt(now.minusHours(1));
+            payment2.setStatus(PaymentStatus.PENDING_RETRY);
             failedPaymentRepository.save(payment2);
 
+            // Payment 3: Expired card
             FailedPayment payment3 = createSampleFailedPayment(
-                    workspace, "pay_order_003", "cust_11111",
-                    new BigDecimal("1200.00"), "bank_timeout",
-                    "GATEWAY_TIMEOUT", "NET_BANKING");
-            payment3.setStatus(PaymentStatus.PENDING_RETRY);
-            payment3.setRetryCount(1);
+                    workspace, "pay_15750_003", "cust_global",
+                    new BigDecimal("15750.00"), "Card expired",
+                    "card_expired", "CARD");
+            payment3.setCustomerName("Global Services LLC");
+            payment3.setCustomerEmail("finance@globalservices.com");
+            payment3.setFailedAt(now.minusHours(3));
             failedPaymentRepository.save(payment3);
 
-            logger.info("Created {} sample failed payments", 3);
+            // Payment 4: Bank timeout
+            FailedPayment payment4 = createSampleFailedPayment(
+                    workspace, "pay_4500_004", "cust_startup",
+                    new BigDecimal("4500.00"), "Bank timeout",
+                    "gateway_timeout", "NET_BANKING");
+            payment4.setCustomerName("StartupCo");
+            payment4.setCustomerEmail("admin@startupco.com");
+            payment4.setFailedAt(now.minusMinutes(45));
+            failedPaymentRepository.save(payment4);
+
+            // Payment 5: Payment disputed
+            FailedPayment payment5 = createSampleFailedPayment(
+                    workspace, "pay_25000_005", "cust_enterprise",
+                    new BigDecimal("25000.00"), "Payment disputed",
+                    "disputed", "CARD");
+            payment5.setCustomerName("Enterprise Solutions");
+            payment5.setCustomerEmail("payments@enterprise.com");
+            payment5.setFailedAt(now.minusHours(6));
+            payment5.setStatus(PaymentStatus.UNDER_REVIEW);
+            failedPaymentRepository.save(payment5);
+
+            // Create some recovered payments for metrics
+            FailedPayment payment6 = createSampleFailedPayment(
+                    workspace, "pay_3500_006", "cust_recovered1",
+                    new BigDecimal("3500.00"), "Temporary decline",
+                    "issuer_declined_temp", "UPI");
+            payment6.setStatus(PaymentStatus.RECOVERED);
+            payment6.setRetryCount(1);
+            payment6.setRecoveredAt(now.minusHours(2));
+            payment6.setLastRetryAt(now.minusHours(2));
+            failedPaymentRepository.save(payment6);
+
+            FailedPayment payment7 = createSampleFailedPayment(
+                    workspace, "pay_7800_007", "cust_recovered2",
+                    new BigDecimal("7800.00"), "Bank timeout",
+                    "gateway_timeout", "CARD");
+            payment7.setStatus(PaymentStatus.RECOVERED);
+            payment7.setRetryCount(1);
+            payment7.setRecoveredAt(now.minusHours(4));
+            payment7.setLastRetryAt(now.minusHours(4));
+            failedPaymentRepository.save(payment7);
+
+            logger.info("Created {} sample failed payments", 7);
 
             // Create sample audit trail entries
             Map<String, Object> auditDetails = new HashMap<>();
-            auditDetails.put("payment_amount", "2500.00");
-            auditDetails.put("payment_method", "UPI");
-            auditDetails.put("error_code", "INSUFFICIENT_FUNDS");
+            auditDetails.put("payment_amount", "12500.00");
+            auditDetails.put("payment_method", "CARD");
+            auditDetails.put("error_code", "issuer_declined_temp");
 
             AuditTrail audit1 = AuditTrail.builder()
                     .user(owner)
@@ -125,7 +180,7 @@ public class ReviveDataInitializer {
                     .paymentIdentifier(payment1.getPaymentIdentifier())
                     .details(objectMapper.writeValueAsString(auditDetails))
                     .outcome("Payment failure recorded")
-                    .timestamp(LocalDateTime.now())
+                    .timestamp(now.minusMinutes(12))
                     .build();
             auditTrailRepository.save(audit1);
 

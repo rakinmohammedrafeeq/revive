@@ -59,6 +59,11 @@ public interface FailedPaymentRepository extends JpaRepository<FailedPayment, Lo
      * Count failed payments by status for a workspace
      */
     long countByWorkspaceIdAndStatus(Long workspaceId, PaymentStatus status);
+    
+    /**
+     * Count all failed payments for a workspace
+     */
+    long countByWorkspaceId(Long workspaceId);
 
     /**
      * Find recent failures (for dashboard)
