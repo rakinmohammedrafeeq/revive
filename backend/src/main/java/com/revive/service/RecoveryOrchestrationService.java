@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -268,10 +269,44 @@ public class RecoveryOrchestrationService {
             logger.info("Recovery action executed for {}: status={}",
                     payment.getPaymentIdentifier(), action.getStatus());
 
+            // Map action status → execution outcome string
+            String executionStatus = switch (action.getStatus()) {
+                case COMPLETED_SUCCESS -> "SUCCESS";
+                case COMPLETED_FAILURE -> "FAILED";
+                case IN_PROGRESS, INITIATED -> "PENDING";
+                case FAILED -> "FAILED";
+                case BLOCKED -> "BLOCKED";
+                case CANCELLED -> "BLOCKED";
+            };
+
+            // Reload payment to get updated recovered amount if recovered
+            FailedPayment updatedPayment = failedPaymentRepository.findById(payment.getId())
+                    .orElse(payment);
+            BigDecimal recoveredAmount = null;
+            if ("SUCCESS".equals(executionStatus)) {
+                // The action executor sets payment status to RECOVERED and creates RecoveredRevenue
+                recoveredAmount = updatedPayment.getAmount();
+            }
+
+            // Parse outcome details from action
+            Map<String, Object> outcomeDetails = new HashMap<>();
+            if (action.getOutcome() != null) {
+                try {
+                    outcomeDetails = objectMapper.readValue(action.getOutcome(),
+                            new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+                } catch (Exception ignored) {
+                    outcomeDetails = Map.of("raw", action.getOutcome());
+                }
+            }
+
             return builder
                     .decision("EXECUTE")
                     .reason("Policy checks passed — recovery action executed")
                     .recoveryActionId(action.getId())
+                    .executionStatus(executionStatus)
+                    .recoveredAmount(recoveredAmount)
+                    .outcomeDetails(outcomeDetails)
+                    .testMode(true) // Razorpay TEST MODE
                     .build();
 
         } catch (Exception e) {

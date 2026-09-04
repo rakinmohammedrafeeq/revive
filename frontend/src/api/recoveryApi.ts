@@ -70,6 +70,14 @@ export interface RecoveryDecision {
   recommendation?: RecoveryRecommendation
   policyResult?: PolicyEvaluationResult
   recoveryActionId?: number
+  /** SUCCESS | PENDING | FAILED — actual execution outcome (when decision == EXECUTE) */
+  executionStatus?: 'SUCCESS' | 'PENDING' | 'FAILED' | 'BLOCKED'
+  /** Amount recovered in INR (only when executionStatus == SUCCESS) */
+  recoveredAmount?: number
+  /** Raw executor details from Razorpay TEST MODE */
+  outcomeDetails?: Record<string, unknown>
+  /** Always true — Razorpay TEST MODE only */
+  testMode?: boolean
 }
 
 export interface RecoveryAction {
@@ -111,6 +119,14 @@ export interface RecoveryMetrics {
   averageRecoveryTime: number
   policyBlockedActions?: number
   expectedRecoveryValue?: number
+  /** Total recovery action attempts recorded */
+  totalAttempts?: number
+  /** Actions that resulted in payment status = RECOVERED */
+  successfulRecoveries?: number
+  /** Actions that ran but payment was declined again */
+  failedRecoveries?: number
+  /** Actions sent (email/SMS/link) awaiting customer response */
+  pendingRecoveries?: number
   startDate?: string
   endDate?: string
 }
@@ -222,7 +238,8 @@ export const recoveryAdminApi = {
   generateDemoData: (count = 60) =>
     apiClient.post<{ generated: number }>('/api/recovery/demo/generate', { count }).then((r) => r.data),
 
-  /** Run batch evaluation across all pending payments */
+  /** Run batch evaluation across all pending payments — returns rich evidence */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   runBatchEvaluation: () =>
-    apiClient.post<{ processed: number; metrics: RecoveryMetrics }>('/api/recovery/batch/evaluate').then((r) => r.data),
+    apiClient.post<any>('/api/recovery/batch/evaluate').then((r) => r.data),
 }

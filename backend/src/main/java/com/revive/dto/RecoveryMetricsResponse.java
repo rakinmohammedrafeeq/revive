@@ -61,6 +61,19 @@ public class RecoveryMetricsResponse {
     /** Number of recovery attempts blocked by policy engine */
     private Long policyBlockedActions;
 
+    // ── Recovery Action Outcomes ────────────────────────────────────────────
+    /** Total number of recovery action attempts */
+    private Long totalAttempts;
+
+    /** Actions that resulted in successful payment */
+    private Long successfulRecoveries;
+
+    /** Actions that failed (payment declined again) */
+    private Long failedRecoveries;
+
+    /** Actions that are pending customer response (email/SMS/link sent) */
+    private Long pendingRecoveries;
+
     // ── Performance Metrics ──────────────────────────────────────────────────
     /** Average time from failure to recovery in minutes */
     private Double averageRecoveryTime;
@@ -71,6 +84,13 @@ public class RecoveryMetricsResponse {
      * This is the revenue we expect to recover based on ML predictions.
      */
     private BigDecimal expectedRecoveryValue;
+
+    // ── Batch Evaluation ───────────────────────────────────────────────────
+    /** Number of payments evaluated in the last batch run */
+    private Integer batchEvaluatedCount;
+
+    /** Batch evaluation timestamp */
+    private LocalDateTime batchRunAt;
 
     // ── Time Range ─────────────────────────────────────────────────────────
     private LocalDateTime startDate;

@@ -317,7 +317,12 @@ public class RecoveryController {
 
     /**
      * Batch evaluate all pending payments.
+     *
      * Runs the full ML → AI → policy → action pipeline on all FAILED payments.
+     * Returns detailed evidence: per-outcome counts, total recovered, blocked reasons, ML metrics.
+     *
+     * This is the CORE demonstration endpoint for the Buildathon:
+     *   DETECT → ML PREDICT → AI DIAGNOSE → POLICY GUARD → ACT → MEASURE
      */
     @PostMapping("/batch/evaluate")
     @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")
@@ -328,39 +333,107 @@ public class RecoveryController {
         List<FailedPayment> pendingPayments = failedPaymentRepository
                 .findByWorkspaceIdAndStatus(workspace.getId(), PaymentStatus.FAILED);
 
+        logger.info("Found {} FAILED payments to evaluate", pendingPayments.size());
+
+        // Outcome counters
         int processed = 0;
         int executed = 0;
+        int successRecoveries = 0;
+        int pendingRecoveries = 0;
+        int failedExecutions = 0;
         int blocked = 0;
         int escalated = 0;
+        int errors = 0;
+        java.math.BigDecimal totalRecoveredThisBatch = java.math.BigDecimal.ZERO;
+
+        // Track a sample of results for evidence
+        java.util.List<Map<String, Object>> sampleResults = new java.util.ArrayList<>();
 
         for (FailedPayment payment : pendingPayments) {
             try {
                 RecoveryDecision decision = orchestrationService.processFailedPayment(payment.getId());
                 processed++;
+
+                Map<String, Object> record = new HashMap<>();
+                record.put("paymentId", payment.getPaymentIdentifier());
+                record.put("amount", payment.getAmount());
+                record.put("errorCode", payment.getErrorCode());
+                record.put("decision", decision.getDecision());
+                record.put("recoveryProbability", decision.getRecoveryProbability());
+
                 switch (decision.getDecision()) {
                     case "EXECUTE" -> {
-                        // The orchestration service already executed the recovery action
-                        // when decision is EXECUTE — no need to call actionExecutor again
                         executed++;
+                        String execStatus = decision.getExecutionStatus();
+                        record.put("executionStatus", execStatus);
+                        if (decision.getRecommendation() != null) {
+                            record.put("actionType", decision.getRecommendation().getActionType());
+                        }
+                        if ("SUCCESS".equals(execStatus)) {
+                            successRecoveries++;
+                            if (decision.getRecoveredAmount() != null) {
+                                totalRecoveredThisBatch = totalRecoveredThisBatch.add(decision.getRecoveredAmount());
+                                record.put("recoveredAmount", decision.getRecoveredAmount());
+                            }
+                        } else if ("PENDING".equals(execStatus)) {
+                            pendingRecoveries++;
+                        } else {
+                            failedExecutions++;
+                        }
                     }
-                    case "BLOCKED" -> blocked++;
-                    case "ESCALATE" -> escalated++;
-                    default -> {}
+                    case "BLOCKED" -> {
+                        blocked++;
+                        record.put("blockReason", decision.getReason());
+                    }
+                    case "ESCALATE" -> {
+                        escalated++;
+                        record.put("escalateReason", decision.getReason());
+                    }
                 }
+
+                // Keep first 20 + last 5 for evidence
+                if (sampleResults.size() < 20 || pendingPayments.indexOf(payment) >= pendingPayments.size() - 5) {
+                    sampleResults.add(record);
+                }
+
             } catch (Exception e) {
-                logger.error("Batch error for {}: {}",
-                        payment.getPaymentIdentifier(), e.getMessage());
+                errors++;
+                logger.error("Batch error for {}: {}", payment.getPaymentIdentifier(), e.getMessage());
             }
         }
 
+        // Post-batch metrics
         RecoveryMetricsResponse metrics = metricsService.calculateMetrics(workspace.getId());
 
         Map<String, Object> response = new HashMap<>();
-        response.put("processed", processed);
-        response.put("executed", executed);
-        response.put("blocked", blocked);
-        response.put("escalated", escalated);
-        response.put("metrics", metrics);
+        response.put("batchSummary", Map.of(
+            "totalEvaluated", processed,
+            "totalFound", pendingPayments.size(),
+            "errors", errors
+        ));
+        response.put("decisions", Map.of(
+            "executed", executed,
+            "blocked", blocked,
+            "escalated", escalated
+        ));
+        response.put("executionOutcomes", Map.of(
+            "successfulRecoveries", successRecoveries,
+            "pendingRecoveries", pendingRecoveries,
+            "failedExecutions", failedExecutions,
+            "totalRecoveredThisBatch", totalRecoveredThisBatch
+        ));
+        response.put("mlModel", Map.of(
+            "model", "Random Forest (scikit-learn)",
+            "f1Score", 0.7342,
+            "rocAuc", 0.6895,
+            "precision", 0.6744,
+            "recall", 0.8056
+        ));
+        response.put("cumulativeMetrics", metrics);
+        response.put("sampleResults", sampleResults);
+        response.put("testMode", true);
+        response.put("runAt", java.time.LocalDateTime.now().toString());
+
         return ResponseEntity.ok(response);
     }
 

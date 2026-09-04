@@ -40,6 +40,7 @@ public class RecoveryActionExecutor {
     private final RecoveredRevenueRepository recoveredRevenueRepository;
     private final RazorpayRecoveryService razorpayService;
     private final AuditTrailService auditTrailService;
+    private final PaymentStateValidator stateValidator;
     private final ObjectMapper objectMapper;
 
     public RecoveryActionExecutor(
@@ -48,12 +49,14 @@ public class RecoveryActionExecutor {
             RecoveredRevenueRepository recoveredRevenueRepository,
             RazorpayRecoveryService razorpayService,
             AuditTrailService auditTrailService,
+            PaymentStateValidator stateValidator,
             ObjectMapper objectMapper) {
         this.recoveryActionRepository = recoveryActionRepository;
         this.failedPaymentRepository = failedPaymentRepository;
         this.recoveredRevenueRepository = recoveredRevenueRepository;
         this.razorpayService = razorpayService;
         this.auditTrailService = auditTrailService;
+        this.stateValidator = stateValidator;
         this.objectMapper = objectMapper;
     }
 
@@ -76,6 +79,57 @@ public class RecoveryActionExecutor {
         logger.info("Executing recovery action {} for payment {}", 
                 actionType, payment.getPaymentIdentifier());
 
+        // Check for terminal states (stopping rule)
+        if (stateValidator.isTerminalState(payment.getStatus())) {
+            logger.warn("Cannot execute recovery on terminal state {} for payment {}",
+                    payment.getStatus(), payment.getPaymentIdentifier());
+            
+            RecoveryAction blockedAction = RecoveryAction.builder()
+                    .failedPayment(payment)
+                    .actionType(actionType)
+                    .channel(channel)
+                    .status(RecoveryActionStatus.BLOCKED)
+                    .isAutomated(initiatedBy == null)
+                    .initiatedBy(initiatedBy)
+                    .initiatedAt(LocalDateTime.now())
+                    .completedAt(LocalDateTime.now())
+                    .cost(BigDecimal.ZERO)
+                    .outcome(serializeOutcome(Map.of(
+                            "blocked", true,
+                            "reason", "Payment is in terminal state: " + payment.getStatus(),
+                            "currentStatus", payment.getStatus().name()
+                    )))
+                    .build();
+            
+            return recoveryActionRepository.save(blockedAction);
+        }
+
+        // Validate state transition to RETRY_IN_PROGRESS
+        if (!stateValidator.isValidTransition(payment.getStatus(), PaymentStatus.RETRY_IN_PROGRESS)) {
+            logger.warn("Invalid state transition from {} to RETRY_IN_PROGRESS for payment {}",
+                    payment.getStatus(), payment.getPaymentIdentifier());
+            
+            RecoveryAction blockedAction = RecoveryAction.builder()
+                    .failedPayment(payment)
+                    .actionType(actionType)
+                    .channel(channel)
+                    .status(RecoveryActionStatus.BLOCKED)
+                    .isAutomated(initiatedBy == null)
+                    .initiatedBy(initiatedBy)
+                    .initiatedAt(LocalDateTime.now())
+                    .completedAt(LocalDateTime.now())
+                    .cost(BigDecimal.ZERO)
+                    .outcome(serializeOutcome(Map.of(
+                            "blocked", true,
+                            "reason", "Invalid state transition",
+                            "currentStatus", payment.getStatus().name(),
+                            "attemptedStatus", "RETRY_IN_PROGRESS"
+                    )))
+                    .build();
+            
+            return recoveryActionRepository.save(blockedAction);
+        }
+
         // Create recovery action record
         RecoveryAction action = RecoveryAction.builder()
                 .failedPayment(payment)
@@ -90,7 +144,7 @@ public class RecoveryActionExecutor {
 
         action = recoveryActionRepository.save(action);
 
-        // Update payment status
+        // Update payment status (validated transition)
         payment.setStatus(PaymentStatus.RETRY_IN_PROGRESS);
         payment.setRetryCount(payment.getRetryCount() + 1);
         payment.setLastRetryAt(LocalDateTime.now());
@@ -134,8 +188,11 @@ public class RecoveryActionExecutor {
             action.setCompletedAt(LocalDateTime.now());
             recoveryActionRepository.save(action);
 
-            payment.setStatus(PaymentStatus.FAILED);
-            failedPaymentRepository.save(payment);
+            // Validate transition back to FAILED
+            if (stateValidator.isValidTransition(payment.getStatus(), PaymentStatus.FAILED)) {
+                payment.setStatus(PaymentStatus.FAILED);
+                failedPaymentRepository.save(payment);
+            }
 
             logAuditEvent(payment, AuditActionType.RECOVERY_COMPLETED, action,
                     "Recovery action failed with error", Map.of("error", e.getMessage()));
@@ -155,10 +212,16 @@ public class RecoveryActionExecutor {
         action.setStatus(RecoveryActionStatus.COMPLETED_SUCCESS);
         recoveryActionRepository.save(action);
 
-        // Update payment status
-        payment.setStatus(PaymentStatus.RECOVERED);
-        payment.setRecoveredAt(LocalDateTime.now());
-        failedPaymentRepository.save(payment);
+        // Validate and update payment status to RECOVERED
+        if (stateValidator.isValidTransition(payment.getStatus(), PaymentStatus.RECOVERED)) {
+            payment.setStatus(PaymentStatus.RECOVERED);
+            payment.setRecoveredAt(LocalDateTime.now());
+            failedPaymentRepository.save(payment);
+        } else {
+            logger.error("Invalid transition to RECOVERED from {} for payment {}",
+                    payment.getStatus(), payment.getPaymentIdentifier());
+            return; // Don't create revenue record if state is inconsistent
+        }
 
         // Calculate total recovery cost for this payment
         BigDecimal totalRecoveryCost = recoveryActionRepository
@@ -202,8 +265,14 @@ public class RecoveryActionExecutor {
         action.setStatus(RecoveryActionStatus.IN_PROGRESS);
         recoveryActionRepository.save(action);
 
-        payment.setStatus(PaymentStatus.PENDING_RETRY);
-        failedPaymentRepository.save(payment);
+        // Validate and update payment status to PENDING_RETRY
+        if (stateValidator.isValidTransition(payment.getStatus(), PaymentStatus.PENDING_RETRY)) {
+            payment.setStatus(PaymentStatus.PENDING_RETRY);
+            failedPaymentRepository.save(payment);
+        } else {
+            logger.warn("Cannot transition to PENDING_RETRY from {} for payment {}",
+                    payment.getStatus(), payment.getPaymentIdentifier());
+        }
 
         logAuditEvent(payment, AuditActionType.RECOVERY_INITIATED, action,
                 "Recovery action executed, awaiting customer response", Map.of());
@@ -224,14 +293,23 @@ public class RecoveryActionExecutor {
                 getDefaultPolicy() : null;
         
         if (policy != null && payment.getRetryCount() >= policy.getMaxRetryCount()) {
-            payment.setStatus(PaymentStatus.ABANDONED);
-            logAuditEvent(payment, AuditActionType.PAYMENT_ABANDONED, action,
-                    "Payment abandoned after exhausting retry limit", Map.of(
-                            "retryCount", payment.getRetryCount(),
-                            "maxRetries", policy.getMaxRetryCount()
-                    ));
+            // Validate transition to ABANDONED
+            if (stateValidator.isValidTransition(payment.getStatus(), PaymentStatus.ABANDONED)) {
+                payment.setStatus(PaymentStatus.ABANDONED);
+                logAuditEvent(payment, AuditActionType.PAYMENT_ABANDONED, action,
+                        "Payment abandoned after exhausting retry limit", Map.of(
+                                "retryCount", payment.getRetryCount(),
+                                "maxRetries", policy.getMaxRetryCount()
+                        ));
+            }
         } else {
-            payment.setStatus(PaymentStatus.FAILED);
+            // Validate transition back to FAILED
+            if (stateValidator.isValidTransition(payment.getStatus(), PaymentStatus.FAILED)) {
+                payment.setStatus(PaymentStatus.FAILED);
+            } else {
+                logger.warn("Cannot transition to FAILED from {} for payment {}",
+                        payment.getStatus(), payment.getPaymentIdentifier());
+            }
         }
         
         failedPaymentRepository.save(payment);

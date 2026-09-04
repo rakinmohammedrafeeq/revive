@@ -4,6 +4,7 @@ import com.revive.dto.RecoveryMetricsResponse;
 import com.revive.entity.FailedPayment;
 import com.revive.enums.AuditActionType;
 import com.revive.enums.PaymentStatus;
+import com.revive.enums.RecoveryActionStatus;
 import com.revive.ml.RecoveryPredictionModel;
 import com.revive.repository.AuditTrailRepository;
 import com.revive.repository.FailedPaymentRepository;
@@ -22,7 +23,14 @@ import java.util.List;
 
 /**
  * Service for calculating recovery metrics and ROI.
+ *
  * All metrics are derived from actual database records — no fake/hardcoded values.
+ *
+ * Key formulas:
+ *   Recovery Rate = totalRecovered / totalRevenueAtRisk × 100
+ *   ROI = netGain / totalRecoveryCost × 100
+ *   ERV = SUM(ML_probability × payment_amount) for active failed payments
+ *   Net Gain = totalRecovered - totalRecoveryCost
  */
 @Service
 public class RecoveryMetricsService {
@@ -48,17 +56,13 @@ public class RecoveryMetricsService {
         this.predictionModel = predictionModel;
     }
 
-    /**
-     * Calculate comprehensive recovery metrics for workspace
-     */
+    /** Calculate comprehensive recovery metrics for workspace */
     @Transactional(readOnly = true)
     public RecoveryMetricsResponse calculateMetrics(Long workspaceId) {
         return calculateMetrics(workspaceId, null, null);
     }
 
-    /**
-     * Calculate recovery metrics for workspace within time range
-     */
+    /** Calculate recovery metrics for workspace within optional time range */
     @Transactional(readOnly = true)
     public RecoveryMetricsResponse calculateMetrics(
             Long workspaceId,
@@ -67,59 +71,64 @@ public class RecoveryMetricsService {
 
         logger.info("Calculating recovery metrics for workspace {}", workspaceId);
 
-        // Total revenue at risk (all failed payments)
+        // ── Revenue amounts ─────────────────────────────────────────────────
         BigDecimal totalRevenueAtRisk = calculateTotalRevenueAtRisk(workspaceId);
 
-        // Total recovered
-        BigDecimal totalRecovered = recoveredRevenueRepository
-                .calculateTotalRecoveredAmount(workspaceId);
+        BigDecimal totalRecovered = safe(recoveredRevenueRepository
+                .calculateTotalRecoveredAmount(workspaceId));
 
-        // Total recovery cost
-        BigDecimal totalRecoveryCost = recoveredRevenueRepository
-                .calculateTotalRecoveryCost(workspaceId);
+        BigDecimal totalRecoveryCost = safe(recoveredRevenueRepository
+                .calculateTotalRecoveryCost(workspaceId));
 
-        // Net gain
-        BigDecimal netGain = recoveredRevenueRepository
-                .calculateTotalNetGain(workspaceId);
+        BigDecimal netGain = safe(recoveredRevenueRepository
+                .calculateTotalNetGain(workspaceId));
 
-        // ROI calculation
+        // ── ROI ─────────────────────────────────────────────────────────────
         BigDecimal roi = BigDecimal.ZERO;
         if (totalRecoveryCost.compareTo(BigDecimal.ZERO) > 0) {
             roi = netGain.divide(totalRecoveryCost, 4, RoundingMode.HALF_UP)
-                    .multiply(new BigDecimal("100"));
+                    .multiply(new BigDecimal("100"))
+                    .setScale(2, RoundingMode.HALF_UP);
         }
 
-        // Recovery rate
-        Double recoveryRate = 0.0;
+        // ── Recovery Rate ────────────────────────────────────────────────────
+        double recoveryRate = 0.0;
         if (totalRevenueAtRisk.compareTo(BigDecimal.ZERO) > 0) {
-            recoveryRate = totalRecovered.divide(totalRevenueAtRisk, 4, RoundingMode.HALF_UP)
+            recoveryRate = totalRecovered
+                    .divide(totalRevenueAtRisk, 4, RoundingMode.HALF_UP)
                     .multiply(new BigDecimal("100"))
                     .doubleValue();
         }
 
-        // Case counts
-        Long totalCases = failedPaymentRepository.countByWorkspaceId(workspaceId);
-        Long recoveredCases = failedPaymentRepository.countByWorkspaceIdAndStatus(
-                workspaceId, PaymentStatus.RECOVERED);
-        Long abandonedCases = failedPaymentRepository.countByWorkspaceIdAndStatus(
-                workspaceId, PaymentStatus.ABANDONED);
-        Long inProgressCases = failedPaymentRepository.countByWorkspaceIdAndStatus(
-                workspaceId, PaymentStatus.RETRY_IN_PROGRESS);
-        Long pendingReviewCases = failedPaymentRepository.countByWorkspaceIdAndStatus(
-                workspaceId, PaymentStatus.UNDER_REVIEW);
+        // ── Case counts ─────────────────────────────────────────────────────
+        long totalCases        = safe(failedPaymentRepository.countByWorkspaceId(workspaceId));
+        long recoveredCases    = safe(failedPaymentRepository.countByWorkspaceIdAndStatus(workspaceId, PaymentStatus.RECOVERED));
+        long abandonedCases    = safe(failedPaymentRepository.countByWorkspaceIdAndStatus(workspaceId, PaymentStatus.ABANDONED));
+        long inProgressCases   = safe(failedPaymentRepository.countByWorkspaceIdAndStatus(workspaceId, PaymentStatus.RETRY_IN_PROGRESS));
+        long pendingReviewCases = safe(failedPaymentRepository.countByWorkspaceIdAndStatus(workspaceId, PaymentStatus.UNDER_REVIEW));
+        long failedCount       = safe(failedPaymentRepository.countByWorkspaceIdAndStatus(workspaceId, PaymentStatus.FAILED));
+        long pendingRetryCount = safe(failedPaymentRepository.countByWorkspaceIdAndStatus(workspaceId, PaymentStatus.PENDING_RETRY));
+        long activeCases       = failedCount + pendingRetryCount;
 
-        // Active cases (FAILED or PENDING_RETRY)
-        Long failedCount = failedPaymentRepository.countByWorkspaceIdAndStatus(
-                workspaceId, PaymentStatus.FAILED);
-        Long pendingRetryCount = failedPaymentRepository.countByWorkspaceIdAndStatus(
-                workspaceId, PaymentStatus.PENDING_RETRY);
-        Long activeCases = failedCount + pendingRetryCount;
+        // ── Policy blocks ────────────────────────────────────────────────────
+        long policyBlockedActions = safe(auditTrailRepository
+                .countByWorkspaceIdAndActionType(workspaceId, AuditActionType.POLICY_VIOLATION));
 
-        // Policy-blocked action count (from audit trail)
-        Long policyBlockedActions = auditTrailRepository
-                .countByWorkspaceIdAndActionType(workspaceId, AuditActionType.POLICY_VIOLATION);
+        // ── Recovery action outcome counts (from recovery_actions table) ─────
+        long totalAttempts = recoveryActionRepository.countByFailedPaymentWorkspaceId(workspaceId);
 
-        // Expected Recovery Value = SUM(ML_probability × amount) for non-recovered payments
+        long successfulRecoveries = recoveryActionRepository
+                .countByFailedPaymentWorkspaceIdAndStatus(workspaceId, RecoveryActionStatus.COMPLETED_SUCCESS);
+
+        long failedRecoveries = recoveryActionRepository
+                .countByFailedPaymentWorkspaceIdAndStatus(workspaceId, RecoveryActionStatus.COMPLETED_FAILURE)
+                + recoveryActionRepository.countByFailedPaymentWorkspaceIdAndStatus(workspaceId, RecoveryActionStatus.FAILED);
+
+        long pendingRecoveries = recoveryActionRepository
+                .countByFailedPaymentWorkspaceIdAndStatus(workspaceId, RecoveryActionStatus.IN_PROGRESS)
+                + recoveryActionRepository.countByFailedPaymentWorkspaceIdAndStatus(workspaceId, RecoveryActionStatus.INITIATED);
+
+        // ── Expected Recovery Value ──────────────────────────────────────────
         BigDecimal expectedRecoveryValue = calculateExpectedRecoveryValue(workspaceId);
 
         return RecoveryMetricsResponse.builder()
@@ -136,6 +145,10 @@ public class RecoveryMetricsService {
                 .pendingReviewCases(pendingReviewCases)
                 .activeCases(activeCases)
                 .policyBlockedActions(policyBlockedActions)
+                .totalAttempts(totalAttempts)
+                .successfulRecoveries(successfulRecoveries)
+                .failedRecoveries(failedRecoveries)
+                .pendingRecoveries(pendingRecoveries)
                 .averageRecoveryTime(calculateAverageRecoveryTime(workspaceId))
                 .expectedRecoveryValue(expectedRecoveryValue)
                 .startDate(startDate)
@@ -143,8 +156,14 @@ public class RecoveryMetricsService {
                 .build();
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // Private helpers
+    // ─────────────────────────────────────────────────────────────────────────
+
     /**
-     * Calculate total revenue at risk across all failed payments for workspace
+     * Total revenue at risk = sum of all failed payment amounts in workspace.
+     * Includes ALL statuses (FAILED, RECOVERED, ABANDONED, etc.) to show
+     * the full historical picture of revenue that was at risk.
      */
     private BigDecimal calculateTotalRevenueAtRisk(Long workspaceId) {
         List<FailedPayment> payments = failedPaymentRepository
@@ -155,27 +174,23 @@ public class RecoveryMetricsService {
     }
 
     /**
-     * Calculate Expected Recovery Value using ML model predictions.
-     * ERV = SUM(P(recovery) × payment_amount) for all active failed payments.
+     * Expected Recovery Value = SUM(P(recovery) × amount) for active FAILED payments.
      *
-     * This uses the ACTUAL trained ML model predictions (not hardcoded values).
+     * Uses the ACTUAL trained ML model — never hardcoded.
      */
     private BigDecimal calculateExpectedRecoveryValue(Long workspaceId) {
         List<FailedPayment> activePayments = failedPaymentRepository
                 .findByWorkspaceIdAndStatus(workspaceId, PaymentStatus.FAILED);
-        activePayments.addAll(
-                failedPaymentRepository.findByWorkspaceIdAndStatus(workspaceId, PaymentStatus.PENDING_RETRY)
-        );
+        activePayments.addAll(failedPaymentRepository
+                .findByWorkspaceIdAndStatus(workspaceId, PaymentStatus.PENDING_RETRY));
 
         BigDecimal erv = BigDecimal.ZERO;
         for (FailedPayment payment : activePayments) {
             try {
                 double probability = predictionModel.predictRecoveryProbability(payment);
-                BigDecimal paymentERV = payment.getAmount()
-                        .multiply(BigDecimal.valueOf(probability));
-                erv = erv.add(paymentERV);
+                erv = erv.add(payment.getAmount().multiply(BigDecimal.valueOf(probability)));
             } catch (Exception e) {
-                logger.warn("Failed to predict for payment {}: {}", 
+                logger.warn("Failed to predict for payment {}: {}",
                         payment.getPaymentIdentifier(), e.getMessage());
             }
         }
@@ -183,24 +198,24 @@ public class RecoveryMetricsService {
     }
 
     /**
-     * Calculate average recovery time in minutes from failure to recovery.
-     * Computed from actual recovered payment timestamps.
+     * Average time from failure → recovery in minutes.
+     * Only considers payments with both failedAt and recoveredAt timestamps.
      */
     private Double calculateAverageRecoveryTime(Long workspaceId) {
         List<FailedPayment> recoveredPayments = failedPaymentRepository
                 .findByWorkspaceIdAndStatus(workspaceId, PaymentStatus.RECOVERED);
 
-        if (recoveredPayments.isEmpty()) {
-            return 0.0;
-        }
+        if (recoveredPayments.isEmpty()) return 0.0;
 
-        double totalMinutes = recoveredPayments.stream()
+        return recoveredPayments.stream()
                 .filter(p -> p.getFailedAt() != null && p.getRecoveredAt() != null)
                 .mapToDouble(p -> Duration.between(p.getFailedAt(), p.getRecoveredAt()).toMinutes())
                 .filter(m -> m > 0)
                 .average()
                 .orElse(0.0);
-
-        return totalMinutes;
     }
+
+    // Null-safe helpers
+    private BigDecimal safe(BigDecimal v) { return v != null ? v : BigDecimal.ZERO; }
+    private long safe(Long v)             { return v != null ? v : 0L; }
 }

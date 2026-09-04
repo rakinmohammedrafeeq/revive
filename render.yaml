@@ -3,57 +3,86 @@ services:
   - type: web
     name: revive-backend
     runtime: java
-    plan: starter  # Upgrade from free tier (512MB) to starter (512MB but better performance)
+    plan: starter
     buildCommand: ./mvnw clean package -DskipTests
     startCommand: chmod +x backend/render-start.sh && ./backend/render-start.sh
     healthCheckPath: /health
     envVars:
+      # Spring Configuration
       - key: SPRING_PROFILES_ACTIVE
         value: prod
       - key: PORT
         sync: false
+      
+      # Database Configuration
       - key: DB_URL
         sync: false
       - key: DB_USERNAME
         sync: false
       - key: DB_PASSWORD
         sync: false
+      
+      # JWT Configuration
       - key: JWT_SECRET
         sync: false
       - key: JWT_EXPIRATION
         value: 86400000
+      
+      # OAuth2 Configuration
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
       - key: GOOGLE_REDIRECT_URI
-        value: https://revive-backend.onrender.com/login/oauth2/code/google
+        value: https://revive-backend-qfre.onrender.com/login/oauth2/code/google
       - key: APP_OAUTH2_REDIRECT_URI
-        sync: false
+        value: https://revive-ops.vercel.app/oauth2/callback
+      
+      # Email Configuration (Resend)
       - key: RESEND_API_KEY
         sync: false
       - key: RESEND_FROM_EMAIL
-        value: onboarding@resend.dev
+        sync: false
       - key: RESEND_FROM_NAME
         value: Revive
+      
+      # Application Configuration
       - key: APP_BASE_URL
-        sync: false
+        value: https://revive-ops.vercel.app
+      
+      # Vector Embeddings (Disabled for production to save RAM)
+      - key: DISABLE_EMBEDDINGS
+        value: true
+      
+      # AI Configuration - Gemini
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_VISION_PRIMARY
         value: gemini-3.6-flash
+      - key: GEMINI_VISION_FALLBACK1
+        value: gemini-3.5-flash
+      - key: GEMINI_VISION_FALLBACK2
+        value: gemini-3-flash
+      - key: GEMINI_VISION_FALLBACK3
+        value: gemini-2.5-flash
       - key: GEMINI_TEXT_PRIMARY
         value: gemini-3.5-flash-lite
-      - key: CLOUDINARY_CLOUD_NAME
+      - key: GEMINI_TEXT_FALLBACK1
+        value: gemini-3.1-flash-lite
+      - key: GEMINI_TEXT_FALLBACK2
+        value: gemini-3.6-flash
+      - key: GEMINI_TEXT_FALLBACK3
+        value: gemini-2.5-flash-lite
+      
+      # AI Configuration - Groq (Fallback)
+      - key: GROQ_API_KEY
         sync: false
-      - key: CLOUDINARY_API_KEY
-        sync: false
-      - key: CLOUDINARY_API_SECRET
-        sync: false
-      - key: REVIVE_SEED_ADMIN
-        value: true
-      - key: DISABLE_EMBEDDINGS
-        value: true
+      - key: GROQ_TEXT_MODEL
+        value: llama-3.1-8b-instant
+      - key: GROQ_VISION_MODEL
+        value: llama-3.2-90b-vision-preview
+      
+      # AI Rate Limits
       - key: AI_MAX_CATEGORIZATION_REQUESTS_PER_DAY
         value: 100
       - key: AI_MAX_RECEIPT_UPLOADS_PER_DAY
@@ -62,3 +91,23 @@ services:
         value: 3
       - key: AI_RETRY_DELAY_MS
         value: 1000
+      
+      # Cloudinary Configuration (Image Storage)
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: CLOUDINARY_URL
+        sync: false
+      
+      # Razorpay Configuration (TEST MODE ONLY)
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      
+      # Admin Seeding
+      - key: REVIVE_SEED_ADMIN
+        value: true

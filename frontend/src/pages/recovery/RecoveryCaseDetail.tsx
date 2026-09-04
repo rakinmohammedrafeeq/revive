@@ -1,487 +1,492 @@
-import { useParams, Link } from 'react-router-dom'
-import { ArrowLeft, AlertCircle, Brain, Shield, CheckCircle2, Clock, RefreshCw, User, CreditCard, Mail, DollarSign, Activity } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useParams, Link, useNavigate } from 'react-router-dom'
+import { 
+  ArrowLeft, AlertCircle, Brain, Shield, CheckCircle2, Clock, 
+  RefreshCw, User, CreditCard, Mail, DollarSign, Activity, 
+  Loader2, PlayCircle, History, Info, TrendingUp
+} from 'lucide-react'
+import { 
+  recoveryCaseApi, 
+  auditTrailApi,
+  type FailedPayment, 
+  type MLPrediction,
+  type AiDiagnosisResult,
+  type RecoveryAction,
+  type AuditTrailEntry,
+  type RecoveryDecision
+} from '@/api/recoveryApi'
+import { formatCurrency } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 
 /**
  * REVIVE RECOVERY CASE DETAIL
  * 
- * Timeline-based narrative showing the complete recovery journey.
- * Each step shows WHY decisions were made with contextual AI insights.
- * 
- * NOTE: Currently using development data structure.
- * Production will integrate with backend recovery APIs.
+ * Complete recovery journey with real-time data:
+ * - Payment details and customer info
+ * - ML prediction and AI diagnosis
+ * - Recovery actions and outcomes
+ * - Full audit trail
  */
 
-// Development types
-interface TimelineStep {
-  id: string
-  type: 'detection' | 'diagnosis' | 'policy-check' | 'decision' | 'action' | 'outcome'
-  title: string
-  description: string
-  timestamp: string
-  status: 'completed' | 'in-progress' | 'pending' | 'failed'
-  aiInsight?: string
-  metadata?: Record<string, any>
+const STATUS_MAP: Record<string, { label: string; class: string; icon: React.ReactNode }> = {
+  FAILED: { 
+    label: 'Ready to Recover', 
+    class: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
+    icon: <AlertCircle className="w-5 h-5" />
+  },
+  PENDING_RETRY: { 
+    label: 'Scheduled for Retry', 
+    class: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+    icon: <Clock className="w-5 h-5" />
+  },
+  RETRY_IN_PROGRESS: { 
+    label: 'Recovery in Progress', 
+    class: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+    icon: <RefreshCw className="w-5 h-5 animate-spin" />
+  },
+  UNDER_REVIEW: { 
+    label: 'Needs Manual Review', 
+    class: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+    icon: <Brain className="w-5 h-5" />
+  },
+  RECOVERED: { 
+    label: 'Successfully Recovered', 
+    class: 'bg-teal-500/20 text-teal-400 border-teal-500/30',
+    icon: <CheckCircle2 className="w-5 h-5" />
+  },
+  ABANDONED: { 
+    label: 'Abandoned', 
+    class: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
+    icon: <AlertCircle className="w-5 h-5" />
+  },
 }
 
-interface CaseDetail {
-  id: string
-  amount: number
-  currency: string
-  customer: {
-    name: string
-    email: string
-    phone?: string
-    customerId: string
-    paymentHistory: {
-      totalTransactions: number
-      successRate: number
-      averageAmount: number
-    }
-  }
-  payment: {
-    method: string
-    last4: string
-    brand: string
-    expiryMonth: number
-    expiryYear: number
-  }
-  failure: {
-    reason: string
-    code: string
-    gatewayResponse: string
-    timestamp: string
-  }
-  recovery: {
-    status: 'detecting' | 'diagnosed' | 'recovering' | 'recovered' | 'needs-review' | 'blocked'
-    confidence: number
-    aiDiagnosis: string
-    recommendation: string
-    policyStatus: 'allowed' | 'review-required' | 'blocked'
-    retryAttempts: number
-    maxRetries: number
-    estimatedRecoveryTime?: string
-  }
-  timeline: TimelineStep[]
-}
-
-// Mock data for a specific case
-const mockCaseDetail: CaseDetail = {
-  id: 'RC-2024-001',
-  amount: 18500,
-  currency: 'INR',
-  customer: {
-    name: 'Acme Corporation',
-    email: 'billing@acmecorp.com',
-    phone: '+91 98765 43210',
-    customerId: 'CUST-12345',
-    paymentHistory: {
-      totalTransactions: 48,
-      successRate: 98.2,
-      averageAmount: 22300
-    }
-  },
-  payment: {
-    method: 'card',
-    last4: '4242',
-    brand: 'Visa',
-    expiryMonth: 12,
-    expiryYear: 2026
-  },
-  failure: {
-    reason: 'Temporary issuer decline',
-    code: 'issuer_declined_temp',
-    gatewayResponse: 'The card issuer declined this transaction temporarily. This is often due to temporary security measures or processing issues.',
-    timestamp: '2024-12-15T10:23:00Z'
-  },
-  recovery: {
-    status: 'recovering',
-    confidence: 87,
-    aiDiagnosis: 'Payment processor experienced temporary issues. Customer has strong payment history with 98% success rate over past 12 months. Similar temporary declines typically resolve within 1-2 hours.',
-    recommendation: 'High recovery probability. Retry recommended within next 2 hours using exponential backoff strategy.',
-    policyStatus: 'allowed',
-    retryAttempts: 1,
-    maxRetries: 3,
-    estimatedRecoveryTime: '~15 minutes'
-  },
-  timeline: [
-    {
-      id: 'step-1',
-      type: 'detection',
-      title: 'Payment failed',
-      description: 'Transaction was declined by the payment gateway. Revive captured the failure in real-time.',
-      timestamp: '2024-12-15T10:23:00Z',
-      status: 'completed',
-      metadata: {
-        gateway: 'Payment Gateway',
-        transactionId: 'pay_abc123xyz',
-        attemptNumber: 1
-      }
-    },
-    {
-      id: 'step-2',
-      type: 'diagnosis',
-      title: 'AI analyzed the failure',
-      description: 'Revive AI examined the failure reason, customer payment history, and similar past cases.',
-      timestamp: '2024-12-15T10:23:15Z',
-      status: 'completed',
-      aiInsight: 'This is a temporary issuer decline. Analysis of 2,847 similar cases shows 89% recovery rate when retried within 2 hours. Customer has excellent payment history (98.2% success rate, 48 transactions). No fraud indicators detected.',
-      metadata: {
-        analysisTime: '3.2s',
-        similarCasesAnalyzed: 2847,
-        confidenceScore: 87
-      }
-    },
-    {
-      id: 'step-3',
-      type: 'policy-check',
-      title: 'Policy verification',
-      description: 'Checked recovery policies: retry limits, timing rules, and approval requirements.',
-      timestamp: '2024-12-15T10:23:18Z',
-      status: 'completed',
-      aiInsight: 'Retry is allowed by policy. Customer has not exceeded retry limits (0 of 3 attempts used). Amount is within automatic recovery threshold (₹50,000). No manual approval required.',
-      metadata: {
-        policyId: 'POL-RETRY-001',
-        rulesChecked: 5,
-        rulesPassed: 5,
-        autoApproved: true
-      }
-    },
-    {
-      id: 'step-4',
-      type: 'decision',
-      title: 'Recovery strategy determined',
-      description: 'Revive decided to retry payment with optimized timing strategy.',
-      timestamp: '2024-12-15T10:23:20Z',
-      status: 'completed',
-      aiInsight: 'Recommended strategy: Retry in 15 minutes using exponential backoff. This timing optimizes for issuer recovery windows while respecting rate limits. If first retry fails, wait 1 hour before second attempt.',
-      metadata: {
-        strategy: 'exponential-backoff',
-        initialDelay: '15m',
-        maxAttempts: 3,
-        estimatedSuccessRate: 87
-      }
-    },
-    {
-      id: 'step-5',
-      type: 'action',
-      title: 'Retry scheduled',
-      description: 'Payment retry has been scheduled according to the recovery strategy.',
-      timestamp: '2024-12-15T10:23:25Z',
-      status: 'in-progress',
-      metadata: {
-        scheduledFor: '2024-12-15T10:38:25Z',
-        retryAttempt: 1,
-        maxRetries: 3
-      }
-    },
-    {
-      id: 'step-6',
-      type: 'outcome',
-      title: 'Awaiting retry execution',
-      description: 'Waiting for scheduled retry time. You\'ll be notified of the outcome.',
-      timestamp: '2024-12-15T10:38:25Z',
-      status: 'pending'
-    }
-  ]
+const ACTION_STATUS_MAP: Record<string, { label: string; class: string }> = {
+  INITIATED: { label: 'Initiated', class: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
+  IN_PROGRESS: { label: 'In Progress', class: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
+  COMPLETED_SUCCESS: { label: 'Success', class: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
+  COMPLETED_FAILURE: { label: 'Failed', class: 'bg-red-500/20 text-red-400 border-red-500/30' },
+  BLOCKED: { label: 'Blocked', class: 'bg-gray-500/20 text-gray-400 border-gray-500/30' },
+  FAILED: { label: 'Error', class: 'bg-red-500/20 text-red-400 border-red-500/30' },
 }
 
 export function RecoveryCaseDetail() {
   const { caseId } = useParams<{ caseId: string }>()
+  const navigate = useNavigate()
   
-  // In production, fetch case detail from API using caseId
-  const caseDetail = mockCaseDetail
+  const [payment, setPayment] = useState<FailedPayment | null>(null)
+  const [prediction, setPrediction] = useState<MLPrediction | null>(null)
+  const [diagnosis, setDiagnosis] = useState<AiDiagnosisResult | null>(null)
+  const [actions, setActions] = useState<RecoveryAction[]>([])
+  const [auditTrail, setAuditTrail] = useState<AuditTrailEntry[]>([])
+  const [loading, setLoading] = useState(true)
+  const [processing, setProcessing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadCaseData = async () => {
+    if (!caseId) return
+    
+    try {
+      setLoading(true)
+      setError(null)
+      
+      const paymentId = parseInt(caseId)
+      const paymentData = await recoveryCaseApi.getById(paymentId)
+      setPayment(paymentData)
+      
+      // Load additional data in parallel
+      const [predictionData, actionsData, auditData] = await Promise.all([
+        recoveryCaseApi.getPrediction(paymentId).catch(() => null),
+        recoveryCaseApi.getActions(paymentId).catch(() => []),
+        auditTrailApi.getByPayment(paymentData.paymentIdentifier).catch(() => [])
+      ])
+      
+      setPrediction(predictionData)
+      setActions(actionsData)
+      setAuditTrail(auditData)
+      
+      // Load diagnosis if not already loaded
+      if (!diagnosis) {
+        recoveryCaseApi.getDiagnosis(paymentId)
+          .then(setDiagnosis)
+          .catch(() => null)
+      }
+      
+    } catch (err) {
+      console.error('Failed to load case:', err)
+      setError('Failed to load recovery case details')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleProcessPayment = async () => {
+    if (!caseId || !payment) return
+    
+    try {
+      setProcessing(true)
+      const decision = await recoveryCaseApi.process(payment.id)
+      
+      // Reload data to show updated state
+      await loadCaseData()
+      
+      // Show outcome message
+      if (decision.executionStatus === 'SUCCESS') {
+        alert(`✅ Payment recovered successfully! Amount: ${formatCurrency(decision.recoveredAmount || 0, payment.currency)}`)
+      } else if (decision.decision === 'BLOCKED') {
+        alert(`⚠️ Recovery blocked: ${decision.reason}`)
+      } else if (decision.decision === 'ESCALATE') {
+        alert(`⏸️ Manual review required: ${decision.reason}`)
+      } else {
+        alert(`✓ Recovery action initiated`)
+      }
+    } catch (err) {
+      console.error('Failed to process payment:', err)
+      alert('Failed to process recovery. Please try again.')
+    } finally {
+      setProcessing(false)
+    }
+  }
+
+  useEffect(() => {
+    loadCaseData()
+  }, [caseId])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-atmospheric flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="w-12 h-12 animate-spin mx-auto text-purple-400" />
+          <p className="text-gray-400">Loading recovery case...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !payment) {
+    return (
+      <div className="min-h-screen bg-atmospheric flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <AlertCircle className="w-16 h-16 mx-auto text-red-400" />
+          <h2 className="text-2xl font-bold text-white">Case Not Found</h2>
+          <p className="text-gray-400">{error || 'The recovery case could not be loaded'}</p>
+          <Button onClick={() => navigate('/recovery')}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Recovery
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  const statusInfo = STATUS_MAP[payment.status] || STATUS_MAP.FAILED
+  const hoursAgo = Math.floor((Date.now() - new Date(payment.failedAt).getTime()) / 3_600_000)
+  const timeAgo = hoursAgo === 0
+    ? `${Math.max(1, Math.floor((Date.now() - new Date(payment.failedAt).getTime()) / 60_000))} minutes ago`
+    : `${hoursAgo} hours ago`
 
   return (
     <div className="min-h-screen bg-atmospheric p-6 md:p-8 lg:p-12">
-      <div className="max-w-[1200px] mx-auto space-y-8">
+      <div className="max-w-[1400px] mx-auto space-y-6">
         
-        {/* Back Navigation */}
-        <div className="animate-slide-up">
-          <Link
-            to="/app/recovery"
-            className="inline-flex items-center gap-2 text-body text-text-secondary hover:text-text-primary transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to recovery queue
-          </Link>
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link
+              to="/recovery"
+              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-6 h-6 text-gray-400" />
+            </Link>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-white">
+                {payment.paymentIdentifier}
+              </h1>
+              <p className="text-gray-400 text-sm mt-1">
+                Recovery case details
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={loadCaseData}
+              className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-gray-400 flex items-center gap-2 transition-colors"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </button>
+            {payment.status === 'FAILED' && (
+              <button
+                onClick={handleProcessPayment}
+                disabled={processing}
+                className="px-4 py-2 bg-purple-500 hover:bg-purple-600 rounded-lg text-white flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {processing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <PlayCircle className="w-4 h-4" />
+                    Process Recovery
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Header */}
-        <div className="animate-slide-up" style={{ animationDelay: '100ms' }}>
-          <div className="flex items-start justify-between mb-4">
-            <div>
-              <h1 className="text-h1 mb-2">Recovery Case</h1>
-              <p className="text-mono text-text-tertiary">{caseDetail.id}</p>
+        {/* Status Banner */}
+        <div className={`glass-card p-6 border-2 ${statusInfo.class}`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              {statusInfo.icon}
+              <div>
+                <h3 className="text-lg font-semibold text-white">{statusInfo.label}</h3>
+                <p className="text-sm text-gray-400">Failed {timeAgo}</p>
+              </div>
             </div>
             <div className="text-right">
-              <div className="text-label text-text-tertiary mb-1">AI CONFIDENCE</div>
-              <div className="text-metric text-gradient-emerald">{caseDetail.recovery.confidence}%</div>
+              <div className="text-3xl font-bold text-white">
+                {formatCurrency(payment.amount, payment.currency)}
+              </div>
+              {payment.recoveredAt && (
+                <p className="text-sm text-emerald-400 mt-1">
+                  Recovered on {new Date(payment.recoveredAt).toLocaleString()}
+                </p>
+              )}
             </div>
           </div>
-          <StatusBanner status={caseDetail.recovery.status} />
         </div>
 
-        {/* Main Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          {/* LEFT COLUMN: Timeline */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Details */}
           <div className="lg:col-span-2 space-y-6">
             
-            {/* Recovery Journey Title */}
-            <div className="animate-slide-up" style={{ animationDelay: '200ms' }}>
-              <h2 className="text-h2 mb-2">Recovery journey</h2>
-              <p className="text-body text-text-secondary">Every step Revive took to recover this payment</p>
-            </div>
-
-            {/* Timeline */}
-            <div className="space-y-4">
-              {caseDetail.timeline.map((step, idx) => (
-                <div
-                  key={step.id}
-                  className="animate-slide-up"
-                  style={{ animationDelay: `${300 + idx * 100}ms` }}
-                >
-                  <TimelineStepCard step={step} isLast={idx === caseDetail.timeline.length - 1} />
+            {/* Payment Details */}
+            <div className="glass-card p-6">
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-purple-400" />
+                Payment Details
+              </h3>
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Payment Method:</span>
+                  <span className="text-white">{payment.paymentMethod || 'N/A'}</span>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* RIGHT COLUMN: Case Info */}
-          <div className="space-y-6">
-            
-            {/* Payment Amount Card */}
-            <div className="panel-glass glow-emerald-soft animate-slide-up" style={{ animationDelay: '400ms' }}>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="glass-emerald h-10 w-10 rounded-lg flex items-center justify-center">
-                  <DollarSign className="h-5 w-5 text-emerald-400" />
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Failure Reason:</span>
+                  <span className="text-white">{payment.failureReason || 'Unknown'}</span>
                 </div>
-                <div className="text-label text-text-tertiary">PAYMENT AMOUNT</div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Error Code:</span>
+                  <span className="text-white font-mono text-sm">{payment.errorCode || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Retry Count:</span>
+                  <span className="text-white">{payment.retryCount}</span>
+                </div>
+                {payment.orderIdentifier && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Order ID:</span>
+                    <span className="text-white font-mono text-sm">{payment.orderIdentifier}</span>
+                  </div>
+                )}
               </div>
-              <div className="text-metric-lg text-text-primary">₹{caseDetail.amount.toLocaleString()}</div>
-              <p className="text-body-sm text-text-secondary mt-2">{caseDetail.currency} · {caseDetail.customer.name}</p>
             </div>
 
             {/* Customer Info */}
-            <div className="card-glass animate-slide-up" style={{ animationDelay: '500ms' }}>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="glass-emerald h-10 w-10 rounded-lg flex items-center justify-center">
-                  <User className="h-5 w-5 text-emerald-400" />
-                </div>
-                <div className="text-label text-text-tertiary">CUSTOMER</div>
-              </div>
+            <div className="glass-card p-6">
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <User className="w-5 h-5 text-purple-400" />
+                Customer Information
+              </h3>
               <div className="space-y-3">
-                <div>
-                  <div className="text-body font-medium text-text-primary">{caseDetail.customer.name}</div>
-                  <div className="text-mono text-xs text-text-tertiary">{caseDetail.customer.customerId}</div>
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Name:</span>
+                  <span className="text-white">{payment.customerName || 'N/A'}</span>
                 </div>
-                <div className="space-y-2 text-body-sm">
-                  <div className="flex items-center gap-2 text-text-secondary">
-                    <Mail className="h-4 w-4" />
-                    {caseDetail.customer.email}
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Email:</span>
+                  <span className="text-white">{payment.customerEmail || 'N/A'}</span>
+                </div>
+                {payment.customerPhone && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Phone:</span>
+                    <span className="text-white">{payment.customerPhone}</span>
                   </div>
-                  {caseDetail.customer.phone && (
-                    <div className="flex items-center gap-2 text-text-secondary">
-                      <Activity className="h-4 w-4" />
-                      {caseDetail.customer.phone}
+                )}
+                <div className="flex justify-between">
+                  <span className="text-gray-400">Customer ID:</span>
+                  <span className="text-white font-mono text-sm">{payment.customerId}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* ML Prediction */}
+            {prediction && (
+              <div className="glass-card p-6">
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <Brain className="w-5 h-5 text-purple-400" />
+                  ML Recovery Prediction
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-gray-400">Recovery Probability</span>
+                      <span className={`text-lg font-bold ${
+                        prediction.recoveryProbability > 0.7 ? 'text-emerald-400' :
+                        prediction.recoveryProbability > 0.4 ? 'text-amber-400' :
+                        'text-red-400'
+                      }`}>
+                        {(prediction.recoveryProbability * 100).toFixed(1)}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-white/10 rounded-full h-2">
+                      <div 
+                        className={`h-2 rounded-full ${
+                          prediction.recoveryProbability > 0.7 ? 'bg-emerald-500' :
+                          prediction.recoveryProbability > 0.4 ? 'bg-amber-500' :
+                          'bg-red-500'
+                        }`}
+                        style={{ width: `${prediction.recoveryProbability * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Confidence:</span>
+                    <span className="text-white">{prediction.confidence}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Model:</span>
+                    <span className="text-white text-sm">{prediction.modelType}</span>
+                  </div>
+                  {prediction.expectedRecoveryValue !== undefined && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Expected Value:</span>
+                      <span className="text-white">
+                        {formatCurrency(prediction.expectedRecoveryValue, payment.currency)}
+                      </span>
                     </div>
                   )}
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Payment History */}
-            <div className="card-glass animate-slide-up" style={{ animationDelay: '600ms' }}>
-              <div className="text-label text-text-tertiary mb-4">PAYMENT HISTORY</div>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-body-sm text-text-secondary">Total transactions</span>
-                  <span className="text-body-sm font-semibold text-text-primary">{caseDetail.customer.paymentHistory.totalTransactions}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-body-sm text-text-secondary">Success rate</span>
-                  <span className="text-body-sm font-semibold text-emerald-400">{caseDetail.customer.paymentHistory.successRate}%</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-body-sm text-text-secondary">Average amount</span>
-                  <span className="text-body-sm font-semibold text-text-primary">₹{caseDetail.customer.paymentHistory.averageAmount.toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Payment Method */}
-            <div className="card-glass animate-slide-up" style={{ animationDelay: '700ms' }}>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="glass-emerald h-10 w-10 rounded-lg flex items-center justify-center">
-                  <CreditCard className="h-5 w-5 text-emerald-400" />
-                </div>
-                <div className="text-label text-text-tertiary">PAYMENT METHOD</div>
-              </div>
-              <div className="space-y-2">
-                <div className="text-body font-medium text-text-primary">{caseDetail.payment.brand} •••• {caseDetail.payment.last4}</div>
-                <div className="text-body-sm text-text-secondary">Expires {caseDetail.payment.expiryMonth}/{caseDetail.payment.expiryYear}</div>
-              </div>
-            </div>
-
-            {/* Failure Details */}
-            <div className="card-glass animate-slide-up" style={{ animationDelay: '800ms' }}>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="glass h-10 w-10 rounded-lg flex items-center justify-center border-error/30">
-                  <AlertCircle className="h-5 w-5 text-error" />
-                </div>
-                <div className="text-label text-text-tertiary">FAILURE REASON</div>
-              </div>
-              <div className="space-y-2">
-                <div className="text-body font-medium text-text-primary">{caseDetail.failure.reason}</div>
-                <div className="text-mono text-xs text-text-tertiary">{caseDetail.failure.code}</div>
-                <p className="text-body-sm text-text-secondary pt-2">{caseDetail.failure.gatewayResponse}</p>
-              </div>
-            </div>
-
-            {/* Recovery Info */}
-            <div className="card-glass animate-slide-up" style={{ animationDelay: '900ms' }}>
-              <div className="text-label text-text-tertiary mb-4">RECOVERY STATUS</div>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-body-sm text-text-secondary">Retry attempts</span>
-                  <span className="text-body-sm font-semibold text-text-primary">
-                    {caseDetail.recovery.retryAttempts} / {caseDetail.recovery.maxRetries}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-body-sm text-text-secondary">Policy status</span>
-                  <span className="text-body-sm font-semibold text-emerald-400 capitalize">
-                    {caseDetail.recovery.policyStatus.replace('-', ' ')}
-                  </span>
-                </div>
-                {caseDetail.recovery.estimatedRecoveryTime && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-body-sm text-text-secondary">Est. recovery time</span>
-                    <span className="text-body-sm font-semibold text-text-primary">{caseDetail.recovery.estimatedRecoveryTime}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-          </div>
-        </div>
-
-      </div>
-    </div>
-  )
-}
-
-// Timeline Step Card Component
-function TimelineStepCard({ step, isLast }: { step: TimelineStep; isLast: boolean }) {
-  const icon = {
-    detection: AlertCircle,
-    diagnosis: Brain,
-    'policy-check': Shield,
-    decision: CheckCircle2,
-    action: RefreshCw,
-    outcome: CheckCircle2
-  }[step.type]
-
-  const Icon = icon
-
-  const statusConfig = {
-    completed: { color: 'text-emerald-400', bgColor: 'bg-emerald-500/10', border: 'border-emerald-500/30' },
-    'in-progress': { color: 'text-warning', bgColor: 'bg-warning/10', border: 'border-warning/30' },
-    pending: { color: 'text-text-tertiary', bgColor: 'bg-glass-white-20', border: 'border-glass-border' },
-    failed: { color: 'text-error', bgColor: 'bg-error/10', border: 'border-error/30' }
-  }
-
-  const { color, bgColor, border } = statusConfig[step.status]
-
-  return (
-    <div className="relative">
-      {/* Connector Line */}
-      {!isLast && (
-        <div className="absolute left-6 top-16 bottom-0 w-px bg-glass-border translate-y-2" />
-      )}
-
-      {/* Card */}
-      <div className={`panel-glass hover-lift ${step.status === 'in-progress' ? 'glow-emerald-soft' : ''}`}>
-        <div className="flex gap-6">
-          
-          {/* Icon */}
-          <div className={`${bgColor} ${border} h-12 w-12 rounded-xl flex items-center justify-center flex-shrink-0 border`}>
-            <Icon className={`h-6 w-6 ${color}`} />
-          </div>
-
-          {/* Content */}
-          <div className="flex-1 min-w-0 space-y-3">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <h3 className="text-h4">{step.title}</h3>
-                {step.status === 'in-progress' && (
-                  <span className="text-xs font-medium text-warning flex items-center gap-1">
-                    <Clock className="h-3 w-3 animate-pulse" />
-                    In progress
-                  </span>
-                )}
-              </div>
-              <p className="text-body-sm text-text-secondary">{step.description}</p>
-              <p className="text-xs text-text-tertiary mt-2">
-                {new Date(step.timestamp).toLocaleString('en-IN', { 
-                  dateStyle: 'medium', 
-                  timeStyle: 'short' 
-                })}
-              </p>
-            </div>
-
-            {/* AI Insight */}
-            {step.aiInsight && (
-              <div className="glass-emerald p-4 rounded-lg">
-                <div className="flex items-start gap-3">
-                  <Brain className="h-5 w-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+            {/* AI Diagnosis */}
+            {diagnosis && (
+              <div className="glass-card p-6">
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <Activity className="w-5 h-5 text-purple-400" />
+                  AI Diagnosis
+                </h3>
+                <div className="space-y-4">
                   <div>
-                    <div className="text-label text-emerald-400 mb-2">REVIVE AI</div>
-                    <p className="text-body-sm text-text-secondary">{step.aiInsight}</p>
+                    <h4 className="text-sm font-medium text-gray-400 mb-2">Diagnosis</h4>
+                    <p className="text-white">{diagnosis.diagnosis}</p>
                   </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-400 mb-2">Root Cause</h4>
+                    <p className="text-white">{diagnosis.rootCause}</p>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-400 mb-2">Recommendation</h4>
+                    <p className="text-white">{diagnosis.recommendation}</p>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Confidence:</span>
+                    <span className="text-white">{(diagnosis.confidence * 100).toFixed(1)}%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">Recoverable:</span>
+                    <span className={diagnosis.isRecoverable ? 'text-emerald-400' : 'text-red-400'}>
+                      {diagnosis.isRecoverable ? 'Yes' : 'No'}
+                    </span>
+                  </div>
+                  {diagnosis.suggestedDelayMinutes > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Suggested Delay:</span>
+                      <span className="text-white">{diagnosis.suggestedDelayMinutes} minutes</span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
 
-            {/* Metadata */}
-            {step.metadata && Object.keys(step.metadata).length > 0 && (
-              <details className="glass-subtle rounded-lg">
-                <summary className="px-4 py-3 cursor-pointer text-body-sm font-medium text-text-secondary hover:text-text-primary transition-colors">
-                  Technical details
-                </summary>
-                <div className="px-4 pb-4 space-y-2">
-                  {Object.entries(step.metadata).map(([key, value]) => (
-                    <div key={key} className="flex items-center justify-between text-xs">
-                      <span className="text-text-tertiary capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
-                      <span className="text-mono text-text-secondary">{String(value)}</span>
-                    </div>
-                  ))}
+            {/* Recovery Actions */}
+            {actions.length > 0 && (
+              <div className="glass-card p-6">
+                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-purple-400" />
+                  Recovery Actions
+                </h3>
+                <div className="space-y-3">
+                  {actions.map((action) => {
+                    const actionStatus = ACTION_STATUS_MAP[action.status] || ACTION_STATUS_MAP.INITIATED
+                    return (
+                      <div key={action.id} className="bg-white/5 rounded-lg p-4">
+                        <div className="flex items-start justify-between mb-2">
+                          <div>
+                            <h4 className="text-white font-medium">{action.actionType.replace(/_/g, ' ')}</h4>
+                            <p className="text-sm text-gray-400">
+                              {new Date(action.initiatedAt).toLocaleString()}
+                            </p>
+                          </div>
+                          <span className={`px-2 py-1 rounded text-xs border ${actionStatus.class}`}>
+                            {actionStatus.label}
+                          </span>
+                        </div>
+                        <div className="text-sm text-gray-400 space-y-1">
+                          <div>Channel: {action.channel || 'AUTOMATIC'}</div>
+                          <div>Cost: {formatCurrency(action.cost, payment.currency)}</div>
+                          {action.completedAt && (
+                            <div>Completed: {new Date(action.completedAt).toLocaleString()}</div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
                 </div>
-              </details>
+              </div>
             )}
+          </div>
+
+          {/* Right Column - Audit Trail */}
+          <div className="space-y-6">
+            <div className="glass-card p-6">
+              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <History className="w-5 h-5 text-purple-400" />
+                Audit Trail
+              </h3>
+              <div className="space-y-3 max-h-[800px] overflow-y-auto">
+                {auditTrail.length === 0 ? (
+                  <p className="text-gray-400 text-sm">No audit events yet</p>
+                ) : (
+                  auditTrail.map((entry) => (
+                    <div key={entry.id} className="bg-white/5 rounded-lg p-3">
+                      <div className="flex items-start gap-2">
+                        <Info className="w-4 h-4 text-purple-400 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-medium text-white">
+                            {entry.actionType.replace(/_/g, ' ')}
+                          </h4>
+                          <p className="text-xs text-gray-400 mt-1">
+                            {entry.details}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {new Date(entry.timestamp).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  )
-}
-
-// Status Banner Component
-function StatusBanner({ status }: { status: string }) {
-  const config = {
-    detecting: { label: 'Detecting failure', color: 'text-info', bgColor: 'bg-info/10' },
-    diagnosed: { label: 'AI diagnosis complete', color: 'text-emerald-400', bgColor: 'bg-emerald-500/10' },
-    recovering: { label: 'Recovery in progress', color: 'text-emerald-400', bgColor: 'bg-emerald-500/10' },
-    recovered: { label: 'Revenue recovered', color: 'text-emerald-400', bgColor: 'bg-emerald-500/10' },
-    'needs-review': { label: 'Needs your review', color: 'text-warning', bgColor: 'bg-warning/10' },
-    blocked: { label: 'Blocked by policy', color: 'text-error', bgColor: 'bg-error/10' }
-  }
-
-  const { label, color, bgColor } = config[status as keyof typeof config] || config.detecting
-
-  return (
-    <div className={`${bgColor} ${color} px-6 py-4 rounded-xl text-center`}>
-      <span className="text-body font-semibold">{label}</span>
     </div>
   )
 }
