@@ -51,7 +51,12 @@ public class SyntheticDataGenerator {
             {"Authentication failed", "auth_failed", "AUTH"},
             {"Gateway error", "gateway_error", "TEMP"},
             {"Daily limit exceeded", "limit_exceeded", "LIMIT"},
-            {"Risk management decline", "risk_decline", "RISK"}
+            {"Risk management decline", "risk_decline", "RISK"},
+            {"Suspected fraud", "fraudulent", "FRAUD"},
+            {"Payment disputed", "disputed", "DISPUTE"},
+            {"Network timeout", "network_timeout", "TEMP"},
+            {"Issuer not available", "issuer_unavailable", "TEMP"},
+            {"Do not honor", "do_not_honor", "PERMANENT"}
     };
 
     public SyntheticDataGenerator(
@@ -70,22 +75,37 @@ public class SyntheticDataGenerator {
      */
     @Transactional
     public int generateSyntheticDataset(Long workspaceId, int count) {
-        logger.info("Generating {} synthetic payment records for workspace {}", count, workspaceId);
+        try {
+            logger.info("Generating {} synthetic payment records for workspace {}", count, workspaceId);
 
-        Workspace workspace = workspaceRepository.findById(workspaceId)
-                .orElseThrow(() -> new RuntimeException("Workspace not found: " + workspaceId));
+            Workspace workspace = workspaceRepository.findById(workspaceId)
+                    .orElseThrow(() -> new RuntimeException("Workspace not found: " + workspaceId));
 
-        List<FailedPayment> payments = new ArrayList<>();
-        
-        for (int i = 0; i < count; i++) {
-            payments.add(generateRealisticPayment(workspace, i));
+            logger.info("Found workspace: {} ({})", workspace.getName(), workspace.getId());
+
+            List<FailedPayment> payments = new ArrayList<>();
+            
+            for (int i = 0; i < count; i++) {
+                try {
+                    FailedPayment payment = generateRealisticPayment(workspace, i);
+                    payments.add(payment);
+                } catch (Exception e) {
+                    logger.error("Failed to generate payment #{}: {}", i, e.getMessage(), e);
+                    throw new RuntimeException("Failed to generate payment #" + i + ": " + e.getMessage(), e);
+                }
+            }
+
+            logger.info("Generated {} payment objects, saving to database...", payments.size());
+
+            // Save all payments
+            List<FailedPayment> savedPayments = failedPaymentRepository.saveAll(payments);
+            
+            logger.info("Successfully saved {} synthetic payment records", savedPayments.size());
+            return savedPayments.size();
+        } catch (Exception e) {
+            logger.error("Error in generateSyntheticDataset: {}", e.getMessage(), e);
+            throw new RuntimeException("Failed to generate synthetic dataset: " + e.getMessage(), e);
         }
-
-        // Save all payments
-        failedPaymentRepository.saveAll(payments);
-        
-        logger.info("Generated {} synthetic payment records", payments.size());
-        return payments.size();
     }
 
     /**
@@ -173,9 +193,19 @@ public class SyntheticDataGenerator {
                     status = PaymentStatus.ABANDONED;
                 }
             }
+        } else if (failureType.equals("FRAUD") || failureType.equals("DISPUTE")) {
+            // Fraud/dispute cases should NOT be auto-recovered
+            // These should be blocked by policy
+            status = PaymentStatus.UNDER_REVIEW;
+            retryCount = 0;
+        } else if (failureType.equals("RISK")) {
+            // Risk declines need review
+            status = PaymentStatus.UNDER_REVIEW;
+            retryCount = 0;
         }
 
-        return FailedPayment.builder()
+        // Build payment with all required fields explicitly set
+        FailedPayment payment = FailedPayment.builder()
                 .workspace(workspace)
                 .paymentIdentifier("PAY_" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
                 .orderIdentifier("ORD_" + UUID.randomUUID().toString().substring(0, 8).toUpperCase())
@@ -194,6 +224,28 @@ public class SyntheticDataGenerator {
                 .lastRetryAt(lastRetryAt)
                 .recoveredAt(recoveredAt)
                 .build();
+        
+        // Validate critical fields before returning
+        if (payment.getWorkspace() == null) {
+            throw new IllegalStateException("Payment workspace is null");
+        }
+        if (payment.getPaymentIdentifier() == null || payment.getPaymentIdentifier().isEmpty()) {
+            throw new IllegalStateException("Payment identifier is null or empty");
+        }
+        if (payment.getCustomerId() == null || payment.getCustomerId().isEmpty()) {
+            throw new IllegalStateException("Customer ID is null or empty");
+        }
+        if (payment.getAmount() == null) {
+            throw new IllegalStateException("Payment amount is null");
+        }
+        if (payment.getFailedAt() == null) {
+            throw new IllegalStateException("Failed at timestamp is null");
+        }
+        if (payment.getRetryCount() == null) {
+            throw new IllegalStateException("Retry count is null");
+        }
+        
+        return payment;
     }
 
     /**

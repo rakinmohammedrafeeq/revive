@@ -57,4 +57,9 @@ public interface AuditTrailRepository extends JpaRepository<AuditTrail, Long> {
      * Count audit entries by action type
      */
     long countByWorkspaceIdAndActionType(Long workspaceId, AuditActionType actionType);
+    
+    /**
+     * Count all audit entries for workspace
+     */
+    long countByWorkspaceId(Long workspaceId);
 }

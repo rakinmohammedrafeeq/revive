@@ -23,6 +23,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -57,6 +58,7 @@ public class RecoveryController {
     private final AiRecoveryDiagnosisService diagnosisService;
     private final AuditTrailService auditTrailService;
     private final SyntheticDataGenerator syntheticDataGenerator;
+    private final BatchValidationService batchValidationService;
     private final RecoveryPolicyService policyService;
     private final CurrentUserService currentUserService;
     private final WorkspaceService workspaceService;
@@ -74,6 +76,7 @@ public class RecoveryController {
             AiRecoveryDiagnosisService diagnosisService,
             AuditTrailService auditTrailService,
             SyntheticDataGenerator syntheticDataGenerator,
+            BatchValidationService batchValidationService,
             RecoveryPolicyService policyService,
             CurrentUserService currentUserService,
             WorkspaceService workspaceService) {
@@ -89,6 +92,7 @@ public class RecoveryController {
         this.diagnosisService = diagnosisService;
         this.auditTrailService = auditTrailService;
         this.syntheticDataGenerator = syntheticDataGenerator;
+        this.batchValidationService = batchValidationService;
         this.policyService = policyService;
         this.currentUserService = currentUserService;
         this.workspaceService = workspaceService;
@@ -301,18 +305,30 @@ public class RecoveryController {
     @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")
     public ResponseEntity<Map<String, Object>> generateDemoData(
             @RequestBody(required = false) Map<String, Integer> request) {
-        Workspace workspace = resolveWorkspace();
-        int count = (request != null && request.containsKey("count")) ? request.get("count") : 60;
-        count = Math.min(count, 200);
+        try {
+            Workspace workspace = resolveWorkspace();
+            if (workspace == null) {
+                logger.error("No workspace found for current user");
+                throw new RuntimeException("No workspace available. Please create a workspace first.");
+            }
+            
+            int count = (request != null && request.containsKey("count")) ? request.get("count") : 60;
+            count = Math.min(count, 200);
 
-        logger.info("Generating {} demo payment records for workspace {}", count, workspace.getId());
-        int generated = syntheticDataGenerator.generateSyntheticDataset(workspace.getId(), count);
+            logger.info("Generating {} demo payment records for workspace {} ({})", 
+                    count, workspace.getId(), workspace.getName());
+            
+            int generated = syntheticDataGenerator.generateSyntheticDataset(workspace.getId(), count);
 
-        Map<String, Object> response = new HashMap<>();
-        response.put("generated", generated);
-        response.put("message", "Demo data generated successfully");
-        response.put("workspaceId", workspace.getId());
-        return ResponseEntity.ok(response);
+            Map<String, Object> response = new HashMap<>();
+            response.put("generated", generated);
+            response.put("message", "Generated " + generated + " synthetic recovery cases with seed 42");
+            response.put("workspace", workspace.getName());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("Failed to generate demo data", e);
+            throw new RuntimeException("Failed to generate demo data: " + e.getMessage(), e);
+        }
     }
 
     /**
@@ -326,115 +342,15 @@ public class RecoveryController {
      */
     @PostMapping("/batch/evaluate")
     @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")
-    public ResponseEntity<Map<String, Object>> runBatchEvaluation() {
+    public ResponseEntity<BatchValidationService.BatchValidationResult> runBatchEvaluation() {
         Workspace workspace = resolveWorkspace();
         logger.info("Starting batch evaluation for workspace {}", workspace.getId());
-
-        List<FailedPayment> pendingPayments = failedPaymentRepository
-                .findByWorkspaceIdAndStatus(workspace.getId(), PaymentStatus.FAILED);
-
-        logger.info("Found {} FAILED payments to evaluate", pendingPayments.size());
-
-        // Outcome counters
-        int processed = 0;
-        int executed = 0;
-        int successRecoveries = 0;
-        int pendingRecoveries = 0;
-        int failedExecutions = 0;
-        int blocked = 0;
-        int escalated = 0;
-        int errors = 0;
-        java.math.BigDecimal totalRecoveredThisBatch = java.math.BigDecimal.ZERO;
-
-        // Track a sample of results for evidence
-        java.util.List<Map<String, Object>> sampleResults = new java.util.ArrayList<>();
-
-        for (FailedPayment payment : pendingPayments) {
-            try {
-                RecoveryDecision decision = orchestrationService.processFailedPayment(payment.getId());
-                processed++;
-
-                Map<String, Object> record = new HashMap<>();
-                record.put("paymentId", payment.getPaymentIdentifier());
-                record.put("amount", payment.getAmount());
-                record.put("errorCode", payment.getErrorCode());
-                record.put("decision", decision.getDecision());
-                record.put("recoveryProbability", decision.getRecoveryProbability());
-
-                switch (decision.getDecision()) {
-                    case "EXECUTE" -> {
-                        executed++;
-                        String execStatus = decision.getExecutionStatus();
-                        record.put("executionStatus", execStatus);
-                        if (decision.getRecommendation() != null) {
-                            record.put("actionType", decision.getRecommendation().getActionType());
-                        }
-                        if ("SUCCESS".equals(execStatus)) {
-                            successRecoveries++;
-                            if (decision.getRecoveredAmount() != null) {
-                                totalRecoveredThisBatch = totalRecoveredThisBatch.add(decision.getRecoveredAmount());
-                                record.put("recoveredAmount", decision.getRecoveredAmount());
-                            }
-                        } else if ("PENDING".equals(execStatus)) {
-                            pendingRecoveries++;
-                        } else {
-                            failedExecutions++;
-                        }
-                    }
-                    case "BLOCKED" -> {
-                        blocked++;
-                        record.put("blockReason", decision.getReason());
-                    }
-                    case "ESCALATE" -> {
-                        escalated++;
-                        record.put("escalateReason", decision.getReason());
-                    }
-                }
-
-                // Keep first 20 + last 5 for evidence
-                if (sampleResults.size() < 20 || pendingPayments.indexOf(payment) >= pendingPayments.size() - 5) {
-                    sampleResults.add(record);
-                }
-
-            } catch (Exception e) {
-                errors++;
-                logger.error("Batch error for {}: {}", payment.getPaymentIdentifier(), e.getMessage());
-            }
-        }
-
-        // Post-batch metrics
-        RecoveryMetricsResponse metrics = metricsService.calculateMetrics(workspace.getId());
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("batchSummary", Map.of(
-            "totalEvaluated", processed,
-            "totalFound", pendingPayments.size(),
-            "errors", errors
-        ));
-        response.put("decisions", Map.of(
-            "executed", executed,
-            "blocked", blocked,
-            "escalated", escalated
-        ));
-        response.put("executionOutcomes", Map.of(
-            "successfulRecoveries", successRecoveries,
-            "pendingRecoveries", pendingRecoveries,
-            "failedExecutions", failedExecutions,
-            "totalRecoveredThisBatch", totalRecoveredThisBatch
-        ));
-        response.put("mlModel", Map.of(
-            "model", "Random Forest (scikit-learn)",
-            "f1Score", 0.7342,
-            "rocAuc", 0.6895,
-            "precision", 0.6744,
-            "recall", 0.8056
-        ));
-        response.put("cumulativeMetrics", metrics);
-        response.put("sampleResults", sampleResults);
-        response.put("testMode", true);
-        response.put("runAt", java.time.LocalDateTime.now().toString());
-
-        return ResponseEntity.ok(response);
+        
+        LocalDateTime batchStartTime = LocalDateTime.now();
+        BatchValidationService.BatchValidationResult result = 
+                batchValidationService.runBatchValidation(workspace.getId(), batchStartTime);
+        
+        return ResponseEntity.ok(result);
     }
 
     /** Dataset statistics and ML model summary */

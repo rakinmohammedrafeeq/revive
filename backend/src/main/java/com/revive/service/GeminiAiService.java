@@ -53,9 +53,7 @@ public class GeminiAiService {
         this.groqApiKey = dotenv.get("GROQ_API_KEY");
         
         if (geminiApiKey == null || geminiApiKey.isBlank()) {
-            logger.warn("GEMINI_API_KEY not configured. AI features will be disabled.");
-        } else if (!geminiApiKey.startsWith("AIza")) {
-            logger.warn("GEMINI_API_KEY format looks invalid (should start with 'AIza'). AI features may not work.");
+            logger.warn("GEMINI_API_KEY not configured. Gemini AI features will be disabled.");
         }
         
         logger.info("Gemini AI Service initialized with fallback support");

@@ -12,6 +12,8 @@ import com.revive.exception.ResourceNotFoundException;
 import com.revive.repository.WorkspaceMemberRepository;
 import com.revive.repository.WorkspaceRepository;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +23,8 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class WorkspaceService {
+
+    private static final Logger logger = LoggerFactory.getLogger(WorkspaceService.class);
 
     private final WorkspaceRepository workspaceRepository;
     private final WorkspaceMemberRepository workspaceMemberRepository;
@@ -208,18 +212,49 @@ public class WorkspaceService {
      * Get user's primary (current) workspace.
      * Used by recovery controllers to scope data to the correct workspace.
      */
-    @Transactional(readOnly = true)
+    @Transactional
     public Workspace getUserPrimaryWorkspace(User user) {
         // First try the user's current workspace
         if (user.getCurrentWorkspace() != null) {
             return user.getCurrentWorkspace();
         }
+        
         // Fall back to first workspace the user is a member of
         List<Workspace> workspaces = workspaceRepository.findWorkspacesByUserId(user.getId());
-        if (workspaces.isEmpty()) {
-            throw new RuntimeException("User has no workspace. Please create or join a workspace first.");
+        if (!workspaces.isEmpty()) {
+            return workspaces.get(0);
         }
-        return workspaces.get(0);
+        
+        // Auto-create a default workspace for the user if none exists
+        logger.info("No workspace found for user {}. Creating default workspace.", user.getEmail());
+        
+        String workspaceName = user.getName() != null && !user.getName().isEmpty() 
+            ? user.getName() + "'s Workspace" 
+            : "My Workspace";
+        
+        Workspace workspace = new Workspace();
+        workspace.setName(workspaceName);
+        workspace.setSlug(generateSlug(workspaceName + "-" + System.currentTimeMillis()));
+        workspace.setOwner(user);
+        workspace.setIsActive(true);
+        workspace = workspaceRepository.save(workspace);
+        
+        // Add user as owner member
+        WorkspaceMember member = new WorkspaceMember();
+        member.setWorkspace(workspace);
+        member.setUser(user);
+        member.setPermission(WorkspacePermission.OWNER);
+        member.setIsActive(true);
+        workspaceMemberRepository.save(member);
+        
+        // Set as current workspace
+        user.setCurrentWorkspace(workspace);
+        userRepository.save(user);
+        
+        logger.info("Created default workspace '{}' (ID: {}) for user {}", 
+                workspace.getName(), workspace.getId(), user.getEmail());
+        
+        return workspace;
     }
 
     @Transactional
