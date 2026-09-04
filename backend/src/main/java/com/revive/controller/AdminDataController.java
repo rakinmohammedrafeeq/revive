@@ -38,12 +38,12 @@ public class AdminDataController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> generateData(
             @RequestParam(defaultValue = "100") int count) {
-        
-        User user = currentUserService.getCurrentUser();
+
+        User user = currentUserService.requireCurrentUser();
         Workspace workspace = workspaceService.getUserPrimaryWorkspace(user);
-        
+
         int generated = dataGenerator.generateSyntheticDataset(workspace.getId(), count);
-        
+
         return ResponseEntity.ok(Map.of(
                 "success", true,
                 "generated", generated,
@@ -57,11 +57,11 @@ public class AdminDataController {
     @GetMapping("/stats")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> getDatasetStats() {
-        User user = currentUserService.getCurrentUser();
+        User user = currentUserService.requireCurrentUser();
         Workspace workspace = workspaceService.getUserPrimaryWorkspace(user);
-        
+
         Map<String, Object> stats = dataGenerator.getDatasetStats(workspace.getId());
-        
+
         return ResponseEntity.ok(stats);
     }
 }

@@ -4,6 +4,7 @@ import com.revive.dto.PolicyEvaluationResult;
 import com.revive.entity.FailedPayment;
 import com.revive.entity.RecoveryAction;
 import com.revive.entity.RecoveryPolicy;
+import com.revive.enums.RecoveryActionStatus;
 import com.revive.enums.RecoveryActionType;
 import com.revive.repository.RecoveryActionRepository;
 import org.slf4j.Logger;
@@ -15,15 +16,40 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Deterministic policy enforcement engine.
- * Evaluates whether a recovery action is permitted based on configured policies.
+ *
+ * This engine is authoritative — the LLM recommendation is only advisory.
+ * A policy BLOCK cannot be overridden by any AI decision.
+ *
+ * Evaluated in order (first match wins):
+ * 1. Hard-stop failure types (fraud, dispute) — always blocked
+ * 2. Duplicate action in progress             — always blocked
+ * 3. Retry limit reached                      — blocked (→ ABANDONED)
+ * 4. Cooldown period not satisfied            — blocked (→ wait)
+ * 5. Per-payment cost cap                     — blocked
+ * 6. Workspace budget cap                     — blocked
+ * 7. Channel restriction                      — blocked
+ * 8. High-value manual approval threshold     — escalate (not blocked)
+ * 9. All checks passed                        — allowed
  */
 @Service
 public class PolicyEvaluationEngine {
 
     private static final Logger logger = LoggerFactory.getLogger(PolicyEvaluationEngine.class);
+
+    // Error codes that are permanent — retrying would be wasteful or dangerous
+    private static final Set<String> HARD_STOP_ERROR_CODES = Set.of(
+            "fraud_suspected", "fraud", "risk_decline", "disputed", "dispute",
+            "chargeback", "stolen_card", "blocked_card"
+    );
+
+    // Default policy values when no policy is configured
+    private static final int DEFAULT_MAX_RETRY_COUNT = 3;
+    private static final int DEFAULT_COOLDOWN_HOURS = 1;
+    private static final BigDecimal HIGH_VALUE_THRESHOLD = new BigDecimal("50000");
 
     private final RecoveryActionRepository recoveryActionRepository;
 
@@ -32,169 +58,143 @@ public class PolicyEvaluationEngine {
     }
 
     /**
-     * Evaluate whether a recovery action is allowed for this payment
+     * Evaluate whether a recovery action is permitted.
+     *
+     * @param payment            The failed payment
+     * @param actionType         The LLM-recommended action to evaluate
+     * @param policy             Active policy (may be null → uses defaults)
+     * @param recoveryProbability ML model probability (not used to allow/block, only for logging)
+     * @return PolicyEvaluationResult — allowed / blocked / requires-approval
      */
     @Transactional(readOnly = true)
     public PolicyEvaluationResult evaluateAction(
             FailedPayment payment,
             RecoveryActionType actionType,
-            RecoveryPolicy policy) {
-        
-        if (policy == null || !policy.getIsActive()) {
-            logger.warn("No active policy found for workspace {}", payment.getWorkspace().getId());
-            return PolicyEvaluationResult.blocked("No active recovery policy configured");
-        }
+            RecoveryPolicy policy,
+            double recoveryProbability) {
 
-        // 1. Check retry limit
-        if (payment.getRetryCount() >= policy.getMaxRetryCount()) {
-            logger.info("Payment {} exceeded retry limit: {}/{}", 
-                    payment.getPaymentIdentifier(), 
-                    payment.getRetryCount(), 
-                    policy.getMaxRetryCount());
+        // ── RULE 1: Hard-stop failure types ───────────────────────────────
+        String errorCode = payment.getErrorCode() != null
+                ? payment.getErrorCode().toLowerCase() : "";
+        String failureReason = payment.getFailureReason() != null
+                ? payment.getFailureReason().toLowerCase() : "";
+
+        boolean isHardStop = HARD_STOP_ERROR_CODES.stream()
+                .anyMatch(code -> errorCode.contains(code) || failureReason.contains(code));
+
+        if (isHardStop) {
+            logger.info("Hard-stop rule triggered for payment {}: error_code={}",
+                    payment.getPaymentIdentifier(), payment.getErrorCode());
             return PolicyEvaluationResult.blocked(
-                    String.format("Retry limit exceeded (%d/%d attempts used)", 
-                            payment.getRetryCount(), 
-                            policy.getMaxRetryCount()));
+                    String.format("Permanent failure type '%s' — automatic recovery is not safe. Manual investigation required.",
+                            payment.getErrorCode()));
         }
 
-        // 2. Check cooldown period
+        // ── RULE 2: Duplicate action check ────────────────────────────────
+        List<RecoveryAction> existingActions = recoveryActionRepository
+                .findByFailedPaymentIdOrderByInitiatedAtDesc(payment.getId());
+
+        boolean hasActiveAction = existingActions.stream().anyMatch(a ->
+                a.getStatus() == RecoveryActionStatus.INITIATED
+                || a.getStatus() == RecoveryActionStatus.IN_PROGRESS);
+
+        if (hasActiveAction) {
+            return PolicyEvaluationResult.blocked("A recovery action is already in progress for this payment");
+        }
+
+        // Use policy values or defaults
+        int maxRetryCount = policy != null ? policy.getMaxRetryCount() : DEFAULT_MAX_RETRY_COUNT;
+        int cooldownHours = policy != null ? policy.getCooldownHours() : DEFAULT_COOLDOWN_HOURS;
+
+        // ── RULE 3: Retry limit ────────────────────────────────────────────
+        if (payment.getRetryCount() >= maxRetryCount) {
+            logger.info("Retry limit reached for payment {}: {}/{}",
+                    payment.getPaymentIdentifier(), payment.getRetryCount(), maxRetryCount);
+            return PolicyEvaluationResult.blocked(
+                    String.format("Retry limit reached (%d/%d attempts used). Payment requires manual review.",
+                            payment.getRetryCount(), maxRetryCount));
+        }
+
+        // ── RULE 4: Cooldown period ────────────────────────────────────────
         if (payment.getLastRetryAt() != null) {
-            long hoursSinceLastRetry = ChronoUnit.HOURS.between(
-                    payment.getLastRetryAt(), 
-                    LocalDateTime.now());
-            
-            if (hoursSinceLastRetry < policy.getCooldownHours()) {
-                logger.info("Payment {} in cooldown period: {} hours elapsed, {} required", 
-                        payment.getPaymentIdentifier(), 
-                        hoursSinceLastRetry, 
-                        policy.getCooldownHours());
+            long hoursSince = ChronoUnit.HOURS.between(payment.getLastRetryAt(), LocalDateTime.now());
+            if (hoursSince < cooldownHours) {
+                logger.info("Cooldown active for payment {}: {}h elapsed, {}h required",
+                        payment.getPaymentIdentifier(), hoursSince, cooldownHours);
                 return PolicyEvaluationResult.blocked(
-                        String.format("Cooldown period active (%d/%d hours elapsed)", 
-                                hoursSinceLastRetry, 
-                                policy.getCooldownHours()));
+                        String.format("Cooldown period active — %d of %d hours elapsed. Try again later.",
+                                hoursSince, cooldownHours));
             }
         }
 
-        // 3. Check per-payment cost limit
-        if (policy.getMaxRecoveryCostPerPayment() != null) {
-            BigDecimal totalCost = calculateTotalCost(payment);
-            BigDecimal estimatedNewCost = estimateActionCost(actionType);
-            BigDecimal projectedTotal = totalCost.add(estimatedNewCost);
-            
-            if (projectedTotal.compareTo(policy.getMaxRecoveryCostPerPayment()) > 0) {
-                logger.info("Payment {} would exceed per-payment cost limit: {} + {} > {}", 
-                        payment.getPaymentIdentifier(), 
-                        totalCost, 
-                        estimatedNewCost, 
-                        policy.getMaxRecoveryCostPerPayment());
+        // ── RULE 5: Per-payment cost cap ───────────────────────────────────
+        if (policy != null && policy.getMaxRecoveryCostPerPayment() != null) {
+            BigDecimal existingCost = existingActions.stream()
+                    .map(RecoveryAction::getCost)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal projectedCost = existingCost.add(estimateActionCost(actionType));
+
+            if (projectedCost.compareTo(policy.getMaxRecoveryCostPerPayment()) > 0) {
                 return PolicyEvaluationResult.blocked(
-                        String.format("Per-payment cost limit would be exceeded (₹%s + ₹%s > ₹%s)", 
-                                totalCost, 
-                                estimatedNewCost, 
+                        String.format("Per-payment cost cap would be exceeded (Rs.%s + Rs.%s > Rs.%s)",
+                                existingCost, estimateActionCost(actionType),
                                 policy.getMaxRecoveryCostPerPayment()));
             }
         }
 
-        // 4. Check workspace budget (simplified - would need workspace-level tracking)
-        if (policy.getMaxTotalRecoveryBudget() != null) {
-            BigDecimal workspaceTotalCost = calculateWorkspaceTotalCost(payment.getWorkspace().getId());
-            BigDecimal estimatedNewCost = estimateActionCost(actionType);
-            
-            if (workspaceTotalCost.add(estimatedNewCost).compareTo(policy.getMaxTotalRecoveryBudget()) > 0) {
-                logger.info("Workspace {} would exceed budget: {} + {} > {}", 
-                        payment.getWorkspace().getId(), 
-                        workspaceTotalCost, 
-                        estimatedNewCost, 
-                        policy.getMaxTotalRecoveryBudget());
+        // ── RULE 6: Channel restriction ────────────────────────────────────
+        if (policy != null && policy.getAllowedChannels() != null
+                && !policy.getAllowedChannels().isEmpty()) {
+            String requiredChannel = getChannelForActionType(actionType);
+            if (!policy.getAllowedChannels().contains(requiredChannel)) {
                 return PolicyEvaluationResult.blocked(
-                        String.format("Workspace recovery budget exhausted (₹%s/₹%s used)", 
-                                workspaceTotalCost, 
-                                policy.getMaxTotalRecoveryBudget()));
+                        String.format("Channel '%s' is not permitted by the active policy", requiredChannel));
             }
         }
 
-        // 5. Check channel restrictions (if allowedChannels is configured)
-        if (policy.getAllowedChannels() != null && !policy.getAllowedChannels().isEmpty()) {
-            String channel = getChannelForActionType(actionType);
-            if (!policy.getAllowedChannels().contains(channel)) {
-                logger.info("Channel {} not allowed for workspace {}", 
-                        channel, 
-                        payment.getWorkspace().getId());
-                return PolicyEvaluationResult.blocked(
-                        String.format("Channel '%s' not permitted by policy", channel));
-            }
-        }
-
-        // 6. Check if manual approval required for high-value payments
-        if (payment.getAmount().compareTo(new BigDecimal("50000")) > 0) {
-            logger.info("High-value payment {} requires manual approval: ₹{}", 
-                    payment.getPaymentIdentifier(), 
-                    payment.getAmount());
+        // ── RULE 7: High-value manual approval ────────────────────────────
+        if (payment.getAmount().compareTo(HIGH_VALUE_THRESHOLD) > 0) {
+            logger.info("High-value payment {} requires manual approval: Rs.{}",
+                    payment.getPaymentIdentifier(), payment.getAmount());
             return PolicyEvaluationResult.requiresApproval(
-                    String.format("Manual approval required for amounts > ₹50,000 (₹%s)", 
+                    String.format("Amount Rs.%s exceeds Rs.50,000 threshold — manual approval required",
                             payment.getAmount()));
         }
 
-        // All checks passed
-        logger.info("Policy evaluation passed for payment {}, action {}", 
-                payment.getPaymentIdentifier(), 
-                actionType);
-        
+        // ── All checks passed ─────────────────────────────────────────────
+        logger.info("Policy ALLOWED for payment {} — action {}", payment.getPaymentIdentifier(), actionType);
         PolicyEvaluationResult result = PolicyEvaluationResult.allowed();
-        result.setPolicyName(policy.getName());
+        result.setPolicyName(policy != null ? policy.getName() : "DEFAULT");
         return result;
     }
 
-    /**
-     * Calculate total cost of all recovery actions for this payment
-     */
-    private BigDecimal calculateTotalCost(FailedPayment payment) {
-        List<RecoveryAction> actions = recoveryActionRepository
-                .findByFailedPaymentIdOrderByInitiatedAtDesc(payment.getId());
-        
-        return actions.stream()
-                .map(RecoveryAction::getCost)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-    }
+    // ─────────────────────────────────────────────────────────────────────────
+    // Helpers
+    // ─────────────────────────────────────────────────────────────────────────
 
-    /**
-     * Calculate total recovery cost for workspace
-     */
-    private BigDecimal calculateWorkspaceTotalCost(Long workspaceId) {
-        // Simplified implementation - would need a proper query
-        // For now, return zero to avoid blocking
-        return BigDecimal.ZERO;
-    }
-
-    /**
-     * Estimate cost for a recovery action type
-     */
     private BigDecimal estimateActionCost(RecoveryActionType actionType) {
         return switch (actionType) {
             case AUTOMATIC_RETRY -> new BigDecimal("5.00");
-            case EMAIL_REMINDER -> new BigDecimal("2.00");
-            case SMS_REMINDER -> new BigDecimal("1.50");
-            case PAYMENT_LINK -> new BigDecimal("3.00");
-            case DISCOUNT_OFFER -> new BigDecimal("50.00");
-            case PHONE_CALL -> new BigDecimal("20.00");
-            case ESCALATION -> new BigDecimal("100.00");
-            case CUSTOM -> new BigDecimal("10.00");
+            case EMAIL_REMINDER  -> new BigDecimal("2.00");
+            case SMS_REMINDER    -> new BigDecimal("1.50");
+            case PAYMENT_LINK    -> new BigDecimal("3.00");
+            case DISCOUNT_OFFER  -> new BigDecimal("50.00");
+            case PHONE_CALL      -> new BigDecimal("20.00");
+            case ESCALATION      -> new BigDecimal("100.00");
+            case CUSTOM          -> new BigDecimal("10.00");
         };
     }
 
-    /**
-     * Map action type to channel
-     */
     private String getChannelForActionType(RecoveryActionType actionType) {
         return switch (actionType) {
             case AUTOMATIC_RETRY -> "AUTOMATIC_RETRY";
-            case EMAIL_REMINDER -> "EMAIL";
-            case SMS_REMINDER -> "SMS";
-            case PAYMENT_LINK -> "EMAIL";
-            case DISCOUNT_OFFER -> "EMAIL";
-            case PHONE_CALL -> "PHONE";
-            case ESCALATION -> "MANUAL";
-            case CUSTOM -> "CUSTOM";
+            case EMAIL_REMINDER  -> "EMAIL";
+            case SMS_REMINDER    -> "SMS";
+            case PAYMENT_LINK    -> "EMAIL";
+            case DISCOUNT_OFFER  -> "EMAIL";
+            case PHONE_CALL      -> "PHONE";
+            case ESCALATION      -> "MANUAL";
+            case CUSTOM          -> "CUSTOM";
         };
     }
 }

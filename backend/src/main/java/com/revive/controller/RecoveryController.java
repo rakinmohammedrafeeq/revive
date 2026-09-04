@@ -100,7 +100,7 @@ public class RecoveryController {
 
     /** Get all failed payments for current workspace */
     @GetMapping("/cases")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")
     public ResponseEntity<List<FailedPayment>> getRecoveryCases() {
         Workspace workspace = resolveWorkspace();
         List<FailedPayment> payments = failedPaymentRepository
@@ -110,7 +110,7 @@ public class RecoveryController {
 
     /** Get specific failed payment */
     @GetMapping("/cases/{id}")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")
     public ResponseEntity<FailedPayment> getRecoveryCase(@PathVariable Long id) {
         Workspace workspace = resolveWorkspace();
         FailedPayment payment = requirePaymentInWorkspace(id, workspace);
@@ -122,7 +122,7 @@ public class RecoveryController {
      * Calls the trained Python Random Forest model (ml/models/recovery_model.pkl).
      */
     @GetMapping("/cases/{id}/prediction")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")
     public ResponseEntity<Map<String, Object>> getPrediction(@PathVariable Long id) {
         Workspace workspace = resolveWorkspace();
         FailedPayment payment = requirePaymentInWorkspace(id, workspace);
@@ -147,7 +147,7 @@ public class RecoveryController {
      * Get AI diagnosis for a payment via Groq LLM.
      */
     @GetMapping("/cases/{id}/diagnosis")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")
     public ResponseEntity<AiDiagnosisResult> getDiagnosis(@PathVariable Long id) {
         Workspace workspace = resolveWorkspace();
         FailedPayment payment = requirePaymentInWorkspace(id, workspace);
@@ -160,7 +160,7 @@ public class RecoveryController {
      * ML prediction → AI diagnosis → policy check → decision
      */
     @PostMapping("/cases/{id}/process")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")
     public ResponseEntity<RecoveryDecision> processPayment(@PathVariable Long id) {
         Workspace workspace = resolveWorkspace();
         requirePaymentInWorkspace(id, workspace);
@@ -170,7 +170,7 @@ public class RecoveryController {
 
     /** Execute a specific recovery action */
     @PostMapping("/cases/{id}/execute")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")
     public ResponseEntity<RecoveryAction> executeRecovery(
             @PathVariable Long id,
             @RequestBody Map<String, String> request) {
@@ -198,7 +198,7 @@ public class RecoveryController {
 
     /** Get recovery action history for a payment */
     @GetMapping("/cases/{id}/actions")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")
     public ResponseEntity<List<RecoveryAction>> getRecoveryActions(@PathVariable Long id) {
         Workspace workspace = resolveWorkspace();
         requirePaymentInWorkspace(id, workspace);
@@ -213,7 +213,7 @@ public class RecoveryController {
 
     /** Get recovery metrics and KPIs */
     @GetMapping("/metrics")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")
     public ResponseEntity<RecoveryMetricsResponse> getMetrics() {
         Workspace workspace = resolveWorkspace();
         RecoveryMetricsResponse metrics = metricsService.calculateMetrics(workspace.getId());
@@ -226,7 +226,7 @@ public class RecoveryController {
 
     /** Get ML model metadata and feature importance */
     @GetMapping("/model/info")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")
     public ResponseEntity<Map<String, Object>> getModelInfo() {
         Map<String, Object> info = predictionModel.getModelInfo();
         info.put("featureImportance", predictionModel.getFeatureImportance());
@@ -249,22 +249,22 @@ public class RecoveryController {
 
     /** Get workspace audit trail (last 100 entries) */
     @GetMapping("/audit")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    public ResponseEntity<List<AuditTrail>> getAuditTrail() {
+    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")
+    public ResponseEntity<List<AuditTrailDto>> getAuditTrail() {
         Workspace workspace = resolveWorkspace();
         List<AuditTrail> entries = auditTrailRepository
                 .findTop100ByWorkspaceIdOrderByTimestampDesc(workspace.getId());
-        return ResponseEntity.ok(entries);
+        return ResponseEntity.ok(entries.stream().map(this::toDto).toList());
     }
 
     /** Get audit trail for a specific payment */
     @GetMapping("/audit/{paymentIdentifier}")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    public ResponseEntity<List<AuditTrail>> getPaymentAuditTrail(
+    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")
+    public ResponseEntity<List<AuditTrailDto>> getPaymentAuditTrail(
             @PathVariable String paymentIdentifier) {
         List<AuditTrail> entries = auditTrailRepository
                 .findByPaymentIdentifierOrderByTimestampDesc(paymentIdentifier);
-        return ResponseEntity.ok(entries);
+        return ResponseEntity.ok(entries.stream().map(this::toDto).toList());
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -273,7 +273,7 @@ public class RecoveryController {
 
     /** Get all policies */
     @GetMapping("/policies")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")
     public ResponseEntity<List<RecoveryPolicy>> getPolicies() {
         Workspace workspace = resolveWorkspace();
         List<RecoveryPolicy> policies = recoveryPolicyRepository
@@ -283,7 +283,7 @@ public class RecoveryController {
 
     /** Get active policy */
     @GetMapping("/policies/active")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")
     public ResponseEntity<RecoveryPolicy> getActivePolicy() {
         Workspace workspace = resolveWorkspace();
         return policyService.getActivePolicies(workspace.getId()).stream()
@@ -298,7 +298,7 @@ public class RecoveryController {
 
     /** Generate synthetic demo data */
     @PostMapping("/demo/generate")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")
     public ResponseEntity<Map<String, Object>> generateDemoData(
             @RequestBody(required = false) Map<String, Integer> request) {
         Workspace workspace = resolveWorkspace();
@@ -320,7 +320,7 @@ public class RecoveryController {
      * Runs the full ML → AI → policy → action pipeline on all FAILED payments.
      */
     @PostMapping("/batch/evaluate")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")
     public ResponseEntity<Map<String, Object>> runBatchEvaluation() {
         Workspace workspace = resolveWorkspace();
         logger.info("Starting batch evaluation for workspace {}", workspace.getId());
@@ -339,21 +339,9 @@ public class RecoveryController {
                 processed++;
                 switch (decision.getDecision()) {
                     case "EXECUTE" -> {
-                        try {
-                            RecoveryActionType actionType = RecoveryActionType.AUTOMATIC_RETRY;
-                            if (decision.getRecommendation() != null
-                                    && decision.getRecommendation().getActionType() != null) {
-                                try {
-                                    actionType = RecoveryActionType.valueOf(
-                                            decision.getRecommendation().getActionType());
-                                } catch (IllegalArgumentException ignored) { /* use default */ }
-                            }
-                            actionExecutor.executeRecoveryAction(payment, actionType, "AUTO_BATCH", null);
-                            executed++;
-                        } catch (Exception e) {
-                            logger.warn("Batch execute failed for {}: {}",
-                                    payment.getPaymentIdentifier(), e.getMessage());
-                        }
+                        // The orchestration service already executed the recovery action
+                        // when decision is EXECUTE — no need to call actionExecutor again
+                        executed++;
                     }
                     case "BLOCKED" -> blocked++;
                     case "ESCALATE" -> escalated++;
@@ -378,7 +366,7 @@ public class RecoveryController {
 
     /** Dataset statistics and ML model summary */
     @GetMapping("/demo/stats")
-    @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")
     public ResponseEntity<Map<String, Object>> getDemoStats() {
         Workspace workspace = resolveWorkspace();
         Map<String, Object> stats = syntheticDataGenerator.getDatasetStats(workspace.getId());
@@ -411,5 +399,20 @@ public class RecoveryController {
             throw new RuntimeException("Access denied: payment does not belong to your workspace");
         }
         return payment;
+    }
+
+    private AuditTrailDto toDto(AuditTrail a) {
+        return AuditTrailDto.builder()
+                .id(a.getId())
+                .timestamp(a.getTimestamp())
+                .actionType(a.getActionType())
+                .entityType(a.getEntityType())
+                .entityId(a.getEntityId())
+                .paymentIdentifier(a.getPaymentIdentifier())
+                .details(a.getDetails())
+                .outcome(a.getOutcome())
+                .workspaceId(a.getWorkspace() != null ? a.getWorkspace().getId() : null)
+                .userEmail(a.getUser() != null ? a.getUser().getEmail() : null)
+                .build();
     }
 }
