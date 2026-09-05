@@ -497,7 +497,7 @@ export function RegisterPage() {
             >
               I agree to the{' '}
               <Link
-                to="/terms-and-privacy"
+                to="/terms-and-privacy?tab=terms"
                 className="text-primary hover:underline font-medium"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -506,7 +506,7 @@ export function RegisterPage() {
               </Link>{' '}
               and{' '}
               <Link
-                to="/terms-and-privacy"
+                to="/terms-and-privacy?tab=privacy"
                 className="text-primary hover:underline font-medium"
                 target="_blank"
                 rel="noopener noreferrer"

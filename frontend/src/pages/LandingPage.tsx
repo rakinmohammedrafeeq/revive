@@ -4,6 +4,7 @@ import {
   ArrowRight, 
   CheckCircle2, 
   Shield, 
+  ShieldCheck,
   Zap, 
   Play, 
   Sparkles, 
@@ -17,9 +18,13 @@ import {
   Activity,
   Pause,
   Terminal,
-  Check
+  Check,
+  Github,
+  Linkedin,
+  User
 } from 'lucide-react'
 import { APP_LOGO_SRC } from '@/config/brandAssets'
+import { DEFAULT_GITHUB_URL, DEFAULT_LINKEDIN_URL, DEFAULT_GITHUB_PROFILE_URL } from '@/config/appInfo'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 import { Button } from '@/components/ui/button'
 import { formatCurrency } from '@/lib/utils'
@@ -863,7 +868,8 @@ export function LandingPage() {
       </section>
 
       {/* ── Auto-Running Autonomous Engine Stream (Live Animation 24/7) ── */}
-      <section id="live-stream" className="py-20 border-t border-border bg-muted/10 relative overflow-hidden">
+      <section id="features" className="py-20 border-t border-border bg-muted/10 relative overflow-hidden scroll-mt-16">
+        <div id="live-stream" className="scroll-mt-16" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
           <div className="text-center max-w-3xl mx-auto space-y-3">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 text-xs font-mono text-emerald-600 dark:text-emerald-400">
@@ -1076,28 +1082,166 @@ export function LandingPage() {
       </section>
 
       {/* ── Footer ────────────────────────────────────────────────────── */}
-      <footer className="py-10 border-t border-border bg-card/50 text-xs text-muted-foreground">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <button
-            onClick={scrollToTop}
-            type="button"
-            className="flex items-center gap-2.5 text-left hover:opacity-85 transition-opacity cursor-pointer group"
-            aria-label="Revive - Back to top"
-          >
-            <img src={APP_LOGO_SRC} alt="Revive" className="h-5 w-5" />
-            <span className="font-bold text-foreground group-hover:text-primary transition-colors">REVIVE</span>
-            <span className="hidden sm:inline text-muted-foreground">• AI Revenue Recovery for Merchants</span>
-          </button>
-          <div className="flex items-center gap-6">
-            <a
-              href="/terms-and-privacy"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:text-foreground transition-colors hover:underline"
-            >
-              Terms & Privacy
-            </a>
-            <span>© {new Date().getFullYear()} Revive Technologies Inc. All rights reserved.</span>
+      <footer className="relative border-t border-border/50 bg-gradient-to-b from-background via-background to-muted/20">
+        {/* Decorative gradient line */}
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          
+          {/* Main Footer Content */}
+          <div className="py-14">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-start">
+              
+              {/* Brand & Value Proposition Column */}
+              <div className="lg:col-span-6 space-y-4">
+                <button
+                  onClick={scrollToTop}
+                  type="button"
+                  className="group flex items-center gap-2.5 hover:opacity-90 transition-all duration-200 w-fit text-left cursor-pointer"
+                  aria-label="Revive - Back to top"
+                >
+                  <img src={APP_LOGO_SRC} alt="Revive" className="h-8 w-8 group-hover:scale-105 transition-transform duration-200" />
+                  <div className="flex flex-col">
+                    <span className="font-extrabold text-lg text-foreground tracking-tight">REVIVE</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Autonomous AI Revenue Recovery</span>
+                  </div>
+                </button>
+
+                <p className="text-sm leading-relaxed text-muted-foreground max-w-md">
+                  Autonomous intelligence engine that recaptures lost checkout transactions, bank timeouts, and OTP drop-offs without customer disruption.
+                </p>
+
+                {/* Trust & Status Badges */}
+                <div className="flex flex-wrap items-center gap-3 pt-2">
+                  <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-border bg-card/60 text-xs text-muted-foreground">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>All systems operational</span>
+                  </div>
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-primary/25 bg-primary/5 text-xs text-primary font-medium">
+                    <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+                    <span>PCI-DSS Level 1 Partner</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Navigation Columns */}
+              <div className="lg:col-span-6 grid grid-cols-2 gap-8 lg:pl-8">
+                
+                {/* Column 1: Product */}
+                <div className="space-y-3">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-foreground/90">Platform</h3>
+                  <ul className="space-y-2.5 text-sm">
+                    <li>
+                      <a href="#features" className="text-muted-foreground hover:text-primary transition-colors inline-block">
+                        Features
+                      </a>
+                    </li>
+                    <li>
+                      <a href="#how-it-works" className="text-muted-foreground hover:text-primary transition-colors inline-block">
+                        How it Works
+                      </a>
+                    </li>
+                    <li>
+                      <a href="#simulator" className="text-muted-foreground hover:text-primary transition-colors inline-block">
+                        Interactive Demo
+                      </a>
+                    </li>
+                    <li>
+                      <a href="#guardrails" className="text-muted-foreground hover:text-primary transition-colors inline-block">
+                        Safety Guardrails
+                      </a>
+                    </li>
+                    <li>
+                      <a href="#calculator" className="text-muted-foreground hover:text-primary transition-colors inline-block">
+                        ROI Calculator
+                      </a>
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Column 2: Legal */}
+                <div className="space-y-3">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-foreground/90">Legal & Trust</h3>
+                  <ul className="space-y-2.5 text-sm">
+                    <li>
+                      <a href="/terms-and-privacy?tab=terms" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors inline-block">
+                        Terms of Service
+                      </a>
+                    </li>
+                    <li>
+                      <a href="/terms-and-privacy?tab=privacy" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors inline-block">
+                        Privacy Policy
+                      </a>
+                    </li>
+                    <li>
+                      <a href="/terms-and-privacy?tab=security" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors inline-block">
+                        Security & Compliance
+                      </a>
+                    </li>
+                    <li>
+                      <Link to="/register" className="text-muted-foreground hover:text-primary transition-colors inline-block">
+                        Get Started Free
+                      </Link>
+                    </li>
+                  </ul>
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div className="border-t border-border/50" />
+
+          {/* Bottom Bar */}
+          <div className="py-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <span>© {new Date().getFullYear()} Revive Technologies Inc. All rights reserved.</span>
+            </div>
+
+            <div className="flex items-center gap-5">
+              <span>
+                Crafted by{' '}
+                <a
+                  href={DEFAULT_LINKEDIN_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-foreground hover:text-primary transition-colors font-medium"
+                >
+                  Rakin Mohammed Rafeeq
+                </a>
+              </span>
+
+              <div className="flex items-center gap-3 border-l border-border/60 pl-4">
+                <a
+                  href={DEFAULT_GITHUB_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-muted-foreground hover:text-primary transition-colors p-0.5"
+                  aria-label="GitHub Repo"
+                >
+                  <Github className="w-4 h-4" />
+                </a>
+                <a
+                  href={DEFAULT_GITHUB_PROFILE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-muted-foreground hover:text-primary transition-colors p-0.5"
+                  aria-label="GitHub Profile"
+                >
+                  <User className="w-4 h-4" />
+                </a>
+                <a
+                  href={DEFAULT_LINKEDIN_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-muted-foreground hover:text-primary transition-colors p-0.5"
+                  aria-label="LinkedIn"
+                >
+                  <Linkedin className="w-4 h-4" />
+                </a>
+              </div>
+            </div>
           </div>
         </div>
       </footer>
