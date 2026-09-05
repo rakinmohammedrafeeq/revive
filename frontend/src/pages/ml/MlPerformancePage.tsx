@@ -142,10 +142,7 @@ export function MlPerformancePage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-              Checkpoint 5
-            </span>
-            <span className="text-xs font-semibold text-muted-foreground">
+            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
               Feedback Loop Active
             </span>
           </div>

@@ -143,12 +143,12 @@ export function LivePaymentSimulator({
             failureReason,
             errorCode,
             paymentMethod: error.source || 'card',
-            metadata: JSON.stringify({
+            metadata: {
               source: 'razorpay_test_checkout',
               step: error.step || 'payment_authorization',
               reason: error.reason,
               rawError: error
-            })
+            }
           })
           toast.success(`Failed payment captured (${paymentIdentifier})! Recovery case created and analyzed by AI.`, { id: 'rzp-fail' })
           onPaymentCreated?.(created)
@@ -196,11 +196,11 @@ export function LivePaymentSimulator({
         failureReason: scenario.reason,
         errorCode: scenario.code,
         paymentMethod: scenario.method,
-        metadata: JSON.stringify({
+        metadata: {
           simulationScenario: scenario.id,
           source: 'instant_sandbox_simulator',
           simulatedAt: new Date().toISOString()
-        })
+        }
       })
 
       toast.success(`Live failure simulated! Case created and evaluated by AI model.`, { id: 'sim-load' })
