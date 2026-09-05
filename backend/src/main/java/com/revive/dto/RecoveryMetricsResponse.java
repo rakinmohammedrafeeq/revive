@@ -36,8 +36,11 @@ public class RecoveryMetricsResponse {
     /** Return on investment as percentage */
     private BigDecimal roi;
 
-    /** Recovery rate as percentage (recovered / at-risk) */
+    /** Recovery rate as percentage of cases (recoveredCases / totalCases) */
     private Double recoveryRate;
+
+    /** Monetary volume recovery rate as percentage (recovered / totalRevenueAtRisk) */
+    private Double volumeRecoveryRate;
 
     // ── Case Counts ─────────────────────────────────────────────────────────
     /** All failed payment cases */

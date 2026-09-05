@@ -91,15 +91,6 @@ public class RecoveryMetricsService {
                     .setScale(2, RoundingMode.HALF_UP);
         }
 
-        // ── Recovery Rate ────────────────────────────────────────────────────
-        double recoveryRate = 0.0;
-        if (totalRevenueAtRisk.compareTo(BigDecimal.ZERO) > 0) {
-            recoveryRate = totalRecovered
-                    .divide(totalRevenueAtRisk, 4, RoundingMode.HALF_UP)
-                    .multiply(new BigDecimal("100"))
-                    .doubleValue();
-        }
-
         // ── Case counts ─────────────────────────────────────────────────────
         long totalCases        = safe(failedPaymentRepository.countByWorkspaceId(workspaceId));
         long recoveredCases    = safe(failedPaymentRepository.countByWorkspaceIdAndStatus(workspaceId, PaymentStatus.RECOVERED));
@@ -109,6 +100,22 @@ public class RecoveryMetricsService {
         long failedCount       = safe(failedPaymentRepository.countByWorkspaceIdAndStatus(workspaceId, PaymentStatus.FAILED));
         long pendingRetryCount = safe(failedPaymentRepository.countByWorkspaceIdAndStatus(workspaceId, PaymentStatus.PENDING_RETRY));
         long activeCases       = failedCount + pendingRetryCount;
+
+        // ── Recovery Rates (Case-based & Volume-based) ────────────────────────
+        // Case recovery rate: % of failed payment cases successfully recovered
+        double recoveryRate = 0.0;
+        if (totalCases > 0) {
+            recoveryRate = ((double) recoveredCases / totalCases) * 100.0;
+        }
+
+        // Volume recovery rate: % of gross monetary value recovered
+        double volumeRecoveryRate = 0.0;
+        if (totalRevenueAtRisk.compareTo(BigDecimal.ZERO) > 0) {
+            volumeRecoveryRate = totalRecovered
+                    .divide(totalRevenueAtRisk, 4, RoundingMode.HALF_UP)
+                    .multiply(new BigDecimal("100"))
+                    .doubleValue();
+        }
 
         // ── Policy blocks ────────────────────────────────────────────────────
         long policyBlockedActions = safe(auditTrailRepository
@@ -138,6 +145,7 @@ public class RecoveryMetricsService {
                 .netGain(netGain)
                 .roi(roi)
                 .recoveryRate(recoveryRate)
+                .volumeRecoveryRate(volumeRecoveryRate)
                 .totalCases(totalCases)
                 .recoveredCases(recoveredCases)
                 .abandonedCases(abandonedCases)
