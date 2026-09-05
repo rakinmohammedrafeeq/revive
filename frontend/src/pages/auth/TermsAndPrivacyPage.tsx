@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useSearchParams, useLocation } from 'react-router-dom'
 import { 
   Shield, 
   Lock, 
@@ -29,9 +29,60 @@ import { APP_LOGO_SRC } from '@/config/brandAssets'
 import { APP_NAME } from '@/config/appInfo'
 import { useAuth } from '@/contexts/AuthContext'
 
+const VALID_TABS = ['terms', 'privacy', 'security'] as const
+type LegalTab = (typeof VALID_TABS)[number]
+
+function normalizeTab(raw: string | null | undefined): LegalTab | null {
+  if (!raw) return null
+  const clean = raw.toLowerCase().trim().replace(/^#/, '')
+  if (['terms', 'tos', 'terms-of-service', 'terms-and-conditions'].includes(clean)) return 'terms'
+  if (['privacy', 'privacy-policy'].includes(clean)) return 'privacy'
+  if (['security', 'compliance', 'security-and-compliance', 'security-compliance'].includes(clean)) return 'security'
+  return null
+}
+
 export function TermsAndPrivacyPage() {
   const { isAuthenticated } = useAuth()
-  const [activeTab, setActiveTab] = useState<string>('terms')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const location = useLocation()
+
+  const tabFromUrl = normalizeTab(searchParams.get('tab') || searchParams.get('section')) || normalizeTab(location.hash)
+  const [activeTab, setActiveTab] = useState<string>(tabFromUrl || 'terms')
+
+  // Synchronize active tab whenever search query or hash changes
+  useEffect(() => {
+    const matchedTab = normalizeTab(searchParams.get('tab') || searchParams.get('section')) || normalizeTab(location.hash)
+    if (matchedTab && matchedTab !== activeTab) {
+      setActiveTab(matchedTab)
+    }
+  }, [searchParams, location.hash, activeTab])
+
+  // Handle tab switcher click while keeping URL query parameter in sync
+  const handleTabChange = (nextTab: string) => {
+    setActiveTab(nextTab)
+    setSearchParams(
+      (prev) => {
+        const updated = new URLSearchParams(prev)
+        updated.set('tab', nextTab)
+        return updated
+      },
+      { replace: true }
+    )
+  }
+
+  // Smooth scroll to tabs section if target tab is provided
+  useEffect(() => {
+    const hasTarget = searchParams.get('tab') || searchParams.get('section') || location.hash
+    if (hasTarget) {
+      const timer = setTimeout(() => {
+        const tabsElement = document.getElementById('legal-tabs-section')
+        if (tabsElement) {
+          tabsElement.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      }, 80)
+      return () => clearTimeout(timer)
+    }
+  }, [searchParams, location.hash])
 
   const handleLogoClick = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -146,7 +197,7 @@ export function TermsAndPrivacyPage() {
         </div>
 
         {/* Tabbed Legal Content */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <Tabs id="legal-tabs-section" value={activeTab} onValueChange={handleTabChange} className="space-y-6">
           <TabsList className="bg-muted/70 p-1 rounded-xl border border-border/60 w-full sm:w-auto flex flex-wrap">
             <TabsTrigger value="terms" className="flex items-center gap-2 flex-1 sm:flex-initial">
               <Scale className="h-4 w-4" />
@@ -165,7 +216,7 @@ export function TermsAndPrivacyPage() {
           {/* ========================================================================= */}
           {/* TAB 1: TERMS OF SERVICE                                                   */}
           {/* ========================================================================= */}
-          <TabsContent value="terms" className="space-y-6 outline-none">
+          <TabsContent value="terms" id="terms" className="space-y-6 outline-none">
             <Card className="border-border/80 bg-card/90 shadow-xl backdrop-blur-md">
               <CardHeader className="border-b border-border/60 pb-5">
                 <div className="flex items-center justify-between">
@@ -243,7 +294,7 @@ export function TermsAndPrivacyPage() {
                         <ScrollText className="h-4 w-4 text-emerald-500" /> Immutable Audit Trail
                       </span>
                       <span className="text-xs text-muted-foreground">
-                        Append-only tamper-evident logging of every automated retry, policy modification, and analyst intervention.
+                        Append-only tamper-evident logging of every automated retry, policy modification, and operator or administrator action.
                       </span>
                     </li>
                   </ul>
@@ -273,26 +324,30 @@ export function TermsAndPrivacyPage() {
                     <span className="text-primary font-mono text-sm">04.</span> Account Access & Role-Based Access Control (RBAC)
                   </h3>
                   <p className="text-muted-foreground leading-relaxed">
-                    Access to {APP_NAME} is partitioned through three distinct role tiers:
+                    Access to {APP_NAME} is enforced through strict Role-Based Access Control (RBAC), segregating platform-wide governance from merchant recovery operations:
                   </p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 text-xs">
-                    <div className="p-3 rounded-lg border border-border/80 bg-card">
-                      <span className="font-bold text-foreground block text-sm">ADMIN</span>
-                      <span className="text-muted-foreground mt-1 block">
-                        Full administrative authority: user creation, role assignment, policy configuration, demo seed triggers, and audit oversight.
-                      </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 text-xs">
+                    <div className="p-3.5 rounded-xl border border-border/80 bg-card space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-foreground text-sm flex items-center gap-1.5">
+                          <ShieldCheck className="h-4 w-4 text-primary" /> ADMIN (Platform Administrator)
+                        </span>
+                        <Badge variant="outline" className="text-[10px] border-primary/30 text-primary">Master Control</Badge>
+                      </div>
+                      <p className="text-muted-foreground leading-relaxed">
+                        Full administrative authority: managing platform users, reviewing merchant registrations, activating and deactivating accounts, monitoring system health, and overseeing immutable audit trails.
+                      </p>
                     </div>
-                    <div className="p-3 rounded-lg border border-border/80 bg-card">
-                      <span className="font-bold text-foreground block text-sm">ANALYST</span>
-                      <span className="text-muted-foreground mt-1 block">
-                        Operational recovery access: case evaluation, retry dispatch, batch simulation, and telemetry inspection.
-                      </span>
-                    </div>
-                    <div className="p-3 rounded-lg border border-border/80 bg-card">
-                      <span className="font-bold text-foreground block text-sm">VIEWER</span>
-                      <span className="text-muted-foreground mt-1 block">
-                        Read-only telemetry access: Command Center charts, recovery rate metrics, and model performance logs.
-                      </span>
+                    <div className="p-3.5 rounded-xl border border-border/80 bg-card space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-foreground text-sm flex items-center gap-1.5">
+                          <CreditCard className="h-4 w-4 text-emerald-500" /> MERCHANT (Recovery Operator)
+                        </span>
+                        <Badge variant="outline" className="text-[10px] border-emerald-500/30 text-emerald-500">Business Portal</Badge>
+                      </div>
+                      <p className="text-muted-foreground leading-relaxed">
+                        Merchant operational access: connecting payment gateway webhooks, inspecting failed checkout drops, tracking revenue recaptured by AI, configuring recovery guardrails (retry caps, cooldowns), and recovering lost sales.
+                      </p>
                     </div>
                   </div>
                   <p className="text-muted-foreground leading-relaxed text-xs pt-1">
@@ -350,7 +405,7 @@ export function TermsAndPrivacyPage() {
           {/* ========================================================================= */}
           {/* TAB 2: PRIVACY POLICY                                                     */}
           {/* ========================================================================= */}
-          <TabsContent value="privacy" className="space-y-6 outline-none">
+          <TabsContent value="privacy" id="privacy" className="space-y-6 outline-none">
             <Card className="border-border/80 bg-card/90 shadow-xl backdrop-blur-md">
               <CardHeader className="border-b border-border/60 pb-5">
                 <div className="flex items-center justify-between">
@@ -379,7 +434,7 @@ export function TermsAndPrivacyPage() {
                         A. Account & Credential Telemetry
                       </span>
                       <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                        Merchant representative full name, business email address, cryptographically salted password hashes (BCrypt), assigned platform role (<code className="text-[11px] bg-muted px-1 py-0.5 rounded">ADMIN</code>, <code className="text-[11px] bg-muted px-1 py-0.5 rounded">ANALYST</code>, <code className="text-[11px] bg-muted px-1 py-0.5 rounded">VIEWER</code>), and Google OAuth2 profile identifiers if Single Sign-On is utilized.
+                        Merchant representative full name, business email address, cryptographically salted password hashes (BCrypt), assigned platform role (<code className="text-[11px] bg-muted px-1 py-0.5 rounded">ADMIN</code>, <code className="text-[11px] bg-muted px-1 py-0.5 rounded">MERCHANT</code>), and Google OAuth2 profile identifiers if Single Sign-On is utilized.
                       </p>
                     </div>
 
@@ -488,7 +543,7 @@ export function TermsAndPrivacyPage() {
           {/* ========================================================================= */}
           {/* TAB 3: SECURITY & COMPLIANCE SUMMARY                                      */}
           {/* ========================================================================= */}
-          <TabsContent value="security" className="space-y-6 outline-none">
+          <TabsContent value="security" id="security" className="space-y-6 outline-none">
             <Card className="border-border/80 bg-card/90 shadow-xl backdrop-blur-md">
               <CardHeader className="border-b border-border/60 pb-5">
                 <div className="flex items-center justify-between">
@@ -517,7 +572,7 @@ export function TermsAndPrivacyPage() {
                       <Users className="h-5 w-5" /> Role-Based Access Control
                     </div>
                     <p className="text-xs text-muted-foreground leading-relaxed">
-                      Strict role boundaries (<code className="text-[11px] bg-muted px-1 rounded">ADMIN</code>, <code className="text-[11px] bg-muted px-1 rounded">ANALYST</code>, <code className="text-[11px] bg-muted px-1 rounded">VIEWER</code>) ensure least-privilege operations. Sensitive administrative controls, user provisioning, and policy changes are gated exclusively to verified Administrators.
+                      Strict role boundaries (<code className="text-[11px] bg-muted px-1 rounded">ADMIN</code>, <code className="text-[11px] bg-muted px-1 rounded">MERCHANT</code>) ensure least-privilege operations. Platform administration, user account activations/deactivations, and system-wide audits are restricted exclusively to the Platform Administrator, while merchants independently manage their payment recovery pipeline, webhooks, and guardrails.
                     </p>
                   </div>
 
