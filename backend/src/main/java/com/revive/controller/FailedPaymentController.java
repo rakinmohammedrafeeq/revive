@@ -10,6 +10,8 @@ import com.revive.enums.PaymentStatus;
 import com.revive.repository.FailedPaymentRepository;
 import com.revive.service.CurrentUserService;
 import com.revive.service.RecoveryOrchestrationService;
+import com.revive.service.WorkspaceService;
+import io.github.cdimascio.dotenv.Dotenv;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,7 +20,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
@@ -30,26 +34,54 @@ public class FailedPaymentController {
     private final FailedPaymentRepository failedPaymentRepository;
     private final CurrentUserService currentUserService;
     private final RecoveryOrchestrationService orchestrationService;
+    private final WorkspaceService workspaceService;
+    private final String razorpayKeyId;
 
     public FailedPaymentController(
             FailedPaymentRepository failedPaymentRepository,
             CurrentUserService currentUserService,
-            RecoveryOrchestrationService orchestrationService) {
+            RecoveryOrchestrationService orchestrationService,
+            WorkspaceService workspaceService) {
         this.failedPaymentRepository = failedPaymentRepository;
         this.currentUserService = currentUserService;
         this.orchestrationService = orchestrationService;
+        this.workspaceService = workspaceService;
+
+        Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
+        this.razorpayKeyId = dotenv.get("RAZORPAY_KEY_ID", "rzp_test_TXxKvihM0gEmF9");
+    }
+
+    private Workspace resolveWorkspace(User currentUser) {
+        Workspace workspace = currentUser.getCurrentWorkspace();
+        if (workspace == null) {
+            workspace = workspaceService.getUserPrimaryWorkspace(currentUser);
+        }
+        return workspace;
+    }
+
+    /**
+     * Get Razorpay configuration for test payments
+     */
+    @GetMapping("/config")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")
+    public ResponseEntity<Map<String, Object>> getRazorpayConfig() {
+        Map<String, Object> config = new HashMap<>();
+        config.put("keyId", razorpayKeyId);
+        config.put("currency", "INR");
+        config.put("isTestMode", razorpayKeyId.startsWith("rzp_test_"));
+        return ResponseEntity.ok(config);
     }
 
     /**
      * Report a failed payment
      */
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")
     public ResponseEntity<FailedPaymentResponse> reportFailedPayment(
             @Valid @RequestBody FailedPaymentRequest request) {
         
         User currentUser = currentUserService.requireCurrentUser();
-        Workspace workspace = currentUser.getCurrentWorkspace();
+        Workspace workspace = resolveWorkspace(currentUser);
         
         if (workspace == null) {
             return ResponseEntity.badRequest().build();
@@ -62,6 +94,19 @@ public class FailedPaymentController {
         if (failedPaymentRepository.findByPaymentIdentifier(request.getPaymentIdentifier()).isPresent()) {
             logger.warn("Payment {} already exists", request.getPaymentIdentifier());
             return ResponseEntity.badRequest().build();
+        }
+
+        String metadataStr = null;
+        if (request.getMetadata() != null) {
+            if (request.getMetadata() instanceof String s) {
+                metadataStr = s;
+            } else {
+                try {
+                    metadataStr = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(request.getMetadata());
+                } catch (Exception e) {
+                    metadataStr = request.getMetadata().toString();
+                }
+            }
         }
 
         FailedPayment payment = FailedPayment.builder()
@@ -80,12 +125,20 @@ public class FailedPaymentController {
                 .paymentMethod(request.getPaymentMethod())
                 .retryCount(0)
                 .failedAt(LocalDateTime.now())
-                .metadata(request.getMetadata())
+                .metadata(metadataStr)
                 .build();
 
         payment = failedPaymentRepository.save(payment);
         
         logger.info("Failed payment {} saved with ID {}", payment.getPaymentIdentifier(), payment.getId());
+
+        // Automatically trigger recovery orchestration pipeline (ML prediction + AI diagnosis + Policy check)
+        try {
+            orchestrationService.processFailedPayment(payment.getId());
+            logger.info("Recovery orchestration auto-processed payment ID {}", payment.getId());
+        } catch (Exception e) {
+            logger.warn("Automatic recovery orchestration skipped or deferred: {}", e.getMessage());
+        }
 
         return ResponseEntity.ok(toResponse(payment));
     }
@@ -97,7 +150,7 @@ public class FailedPaymentController {
     @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")
     public ResponseEntity<List<FailedPaymentResponse>> listFailedPayments() {
         User currentUser = currentUserService.requireCurrentUser();
-        Workspace workspace = currentUser.getCurrentWorkspace();
+        Workspace workspace = resolveWorkspace(currentUser);
         
         if (workspace == null) {
             return ResponseEntity.badRequest().build();
@@ -120,7 +173,7 @@ public class FailedPaymentController {
     @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")
     public ResponseEntity<FailedPaymentResponse> getFailedPayment(@PathVariable Long id) {
         User currentUser = currentUserService.requireCurrentUser();
-        Workspace workspace = currentUser.getCurrentWorkspace();
+        Workspace workspace = resolveWorkspace(currentUser);
         
         if (workspace == null) {
             return ResponseEntity.badRequest().build();
@@ -140,10 +193,10 @@ public class FailedPaymentController {
      * Diagnose a failed payment (triggers recovery orchestration)
      */
     @PostMapping("/{id}/diagnose")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")
     public ResponseEntity<RecoveryDecision> diagnosePayment(@PathVariable Long id) {
         User currentUser = currentUserService.requireCurrentUser();
-        Workspace workspace = currentUser.getCurrentWorkspace();
+        Workspace workspace = resolveWorkspace(currentUser);
         
         if (workspace == null) {
             return ResponseEntity.badRequest().build();

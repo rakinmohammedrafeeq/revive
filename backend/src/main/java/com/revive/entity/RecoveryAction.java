@@ -1,5 +1,6 @@
 package com.revive.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.revive.enums.RecoveryActionStatus;
 import com.revive.enums.RecoveryActionType;
 import jakarta.persistence.*;
@@ -32,6 +33,7 @@ public class RecoveryAction {
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "failed_payment_id", nullable = false)
+    @JsonIgnore
     private FailedPayment failedPayment;
 
     /**
@@ -67,6 +69,7 @@ public class RecoveryAction {
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "initiated_by")
+    @JsonIgnore
     private User initiatedBy;
 
     /**

@@ -3,7 +3,6 @@ import {
   APP_NAME,
   DEFAULT_GITHUB_URL,
   DEFAULT_LINKEDIN_URL,
-  DEFAULT_COFFEE_URL,
 } from '@/config/appInfo'
 import * as React from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -17,12 +16,6 @@ const GitHubMark = () => (
 const LinkedInMark = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4" fill="currentColor">
     <path d="M20.45 20.45h-3.56v-5.57c0-1.33-.03-3.04-1.85-3.04-1.85 0-2.13 1.45-2.13 2.95v5.66H9.35V9h3.41v1.56h.05c.48-.9 1.66-1.85 3.41-1.85 3.64 0 4.31 2.4 4.31 5.51v6.23ZM5.34 7.43a2.06 2.06 0 1 1 0-4.12 2.06 2.06 0 0 1 0 4.12ZM7.12 20.45H3.56V9h3.56v11.45Z" />
-  </svg>
-)
-
-const CoffeeMark = () => (
-  <svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4" fill="currentColor">
-    <path d="M20.216 6.415l-.132-.666c-.119-.598-.388-1.163-1.001-1.379-.197-.069-.42-.098-.57-.241-.152-.143-.196-.366-.231-.572-.065-.378-.125-.756-.192-1.133-.057-.325-.102-.69-.25-.987-.195-.4-.597-.634-.996-.788a5.723 5.723 0 00-.626-.194c-1-.263-2.05-.36-3.077-.416a25.834 25.834 0 00-3.7.062c-.915.083-1.88.184-2.75.5-.318.116-.646.256-.888.501-.297.302-.393.77-.177 1.146.154.267.415.456.692.58.36.162.737.284 1.123.366 1.075.238 2.189.331 3.287.37 1.218.05 2.437.01 3.65-.118.299-.033.598-.073.896-.119.352-.054.578-.513.474-.834-.124-.383-.457-.531-.834-.473-.466.074-.96.108-1.382.146-1.177.08-2.358.082-3.536.006a22.228 22.228 0 01-1.157-.107c-.086-.01-.18-.025-.258-.036-.243-.036-.484-.08-.724-.13-.111-.027-.111-.185 0-.212h.005c.277-.06.557-.108.838-.147h.002c.131-.009.263-.032.394-.048a25.076 25.076 0 013.426-.12c.674.019 1.347.067 2.017.144l.228.031c.267.04.533.088.798.145.392.085.895.113 1.07.542.055.137.08.288.111.431l.319 1.484a.237.237 0 01-.199.284h-.003c-.037.006-.075.01-.112.015a36.704 36.704 0 01-4.743.295 37.059 37.059 0 01-4.699-.304c-.14-.017-.293-.042-.417-.06-.326-.048-.649-.108-.973-.161-.393-.065-.768-.032-1.123.161-.29.16-.527.404-.675.701-.435.869-.166 1.98.579 2.536.744.556 1.753.744 2.674.738a10.04 10.04 0 003.558-.744c1.122-.478 2.086-1.32 2.914-2.086.392-.363.79-.765 1.21-1.072.154-.113.34-.167.517-.167.399 0 .712.333.712.731v5.938c0 1.656-1.344 3-3 3H6c-1.656 0-3-1.344-3-3V9.429c0-.402.332-.731.731-.731.172 0 .36.053.517.167.28.206.505.422.764.649z" />
   </svg>
 )
 
@@ -44,9 +37,7 @@ export const AppFooter = () => {
   }, [location.pathname, navigate])
 
   const handleLogoClick = () => {
-    if (isAuthPage) {
-      goHomeOrTop()
-    }
+    goHomeOrTop()
   }
 
   return (
@@ -57,36 +48,22 @@ export const AppFooter = () => {
         <div className="grid grid-cols-1 gap-10 md:grid-cols-3">
           {/* Column 1: Brand */}
           <div className="space-y-4">
-            {isAuthPage ? (
-              <button
-                type="button"
-                onClick={handleLogoClick}
-                className="group inline-flex items-center gap-2.5 rounded-lg px-1 py-0.5 transition-opacity duration-200 hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
-                aria-label="Go to home"
-              >
-                <img
-                  src={APP_LOGO_SRC}
-                  alt={`${APP_NAME} logo`}
-                  width={28}
-                  height={28}
-                  loading="lazy"
-                  className="h-7 w-7 object-contain"
-                />
-                <span className="text-sm font-semibold tracking-tight">{APP_NAME}</span>
-              </button>
-            ) : (
-              <div className="inline-flex items-center gap-2.5 px-1 py-0.5">
-                <img
-                  src={APP_LOGO_SRC}
-                  alt={`${APP_NAME} logo`}
-                  width={28}
-                  height={28}
-                  loading="lazy"
-                  className="h-7 w-7 object-contain"
-                />
-                <span className="text-sm font-semibold tracking-tight">{APP_NAME}</span>
-              </div>
-            )}
+            <button
+              type="button"
+              onClick={handleLogoClick}
+              className="group inline-flex items-center gap-2.5 rounded-lg px-1 py-0.5 transition-opacity duration-200 hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 text-left cursor-pointer"
+              aria-label="Go to home"
+            >
+              <img
+                src={APP_LOGO_SRC}
+                alt={`${APP_NAME} logo`}
+                width={28}
+                height={28}
+                loading="lazy"
+                className="h-7 w-7 object-contain"
+              />
+              <span className="text-sm font-semibold tracking-tight">{APP_NAME}</span>
+            </button>
 
             <p className="text-[13px] leading-relaxed text-white/40">
               AI-powered revenue recovery for businesses.<br />
@@ -126,10 +103,6 @@ export const AppFooter = () => {
               <a href={DEFAULT_LINKEDIN_URL} target="_blank" rel="noreferrer" className={socialLinkClass}>
                 <LinkedInMark />
                 <span>LinkedIn</span>
-              </a>
-              <a href={DEFAULT_COFFEE_URL} target="_blank" rel="noreferrer" className={socialLinkClass}>
-                <CoffeeMark />
-                <span>Buy me a coffee</span>
               </a>
             </div>
           </div>

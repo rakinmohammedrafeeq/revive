@@ -58,6 +58,34 @@ public class EmailService {
         }
     }
 
+    public void sendRegistrationOtpEmail(String toEmail, String otp) {
+        log.info("=== REGISTRATION OTP EMAIL START ===");
+        log.info("To: {}", toEmail);
+        log.info("OTP: {}", otp);
+
+        String fromAddress = fromName + " <" + fromEmail + ">";
+        String htmlContent = buildRegistrationOtpEmailHtml(otp);
+
+        try {
+            CreateEmailOptions params = CreateEmailOptions.builder()
+                    .from(fromAddress)
+                    .to(toEmail)
+                    .subject("Verify Your Revive Email Address")
+                    .html(htmlContent)
+                    .build();
+
+            log.info("Calling Resend API for registration OTP...");
+            CreateEmailResponse response = resend.emails().send(params);
+            log.info("=== REGISTRATION OTP EMAIL SEND SUCCESS === Email ID: {}", response.getId());
+
+        } catch (Exception e) {
+            log.warn("=== REGISTRATION OTP EMAIL SEND FAILED (Fallback to server log) ===");
+            log.warn("Error sending email via Resend: {}", e.getMessage());
+            log.warn(">>> [REGISTRATION OTP] Code for {}: {} <<<", toEmail, otp);
+            // Non-blocking fallback so registration remains usable in sandbox/dev environments
+        }
+    }
+
     public void sendWorkspaceInvitation(String toEmail, String inviterName, String workspaceName, String invitationToken) {
         log.info("=== WORKSPACE INVITATION EMAIL START ===");
         log.info("To: {}", toEmail);
@@ -464,5 +492,30 @@ public class EmailService {
                 "</td></tr></table></body></html>";
 
         return html;
+    }
+
+    private String buildRegistrationOtpEmailHtml(String otp) {
+        int currentYear = java.time.Year.now().getValue();
+        return "<!DOCTYPE html>" +
+                "<html lang=\"en\">" +
+                "<head><meta charset=\"UTF-8\"><title>Verify Your Email</title></head>" +
+                "<body style=\"margin:0;padding:0;background:#0b1120;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;color:#f8fafc;\">" +
+                "<table role=\"presentation\" width=\"100%\" style=\"padding:40px 20px;background:#0b1120;\">" +
+                "<tr><td align=\"center\">" +
+                "<table role=\"presentation\" width=\"100%\" style=\"max-width:520px;background:#131f37;border-radius:20px;border:1px solid rgba(255,255,255,0.12);padding:40px 32px;text-align:center;\">" +
+                "<tr><td>" +
+                "<h1 style=\"color:#10b981;font-size:24px;margin:0 0 8px 0;letter-spacing:1px;\">REVIVE</h1>" +
+                "<p style=\"color:#94a3b8;font-size:12px;margin:0 0 24px 0;text-transform:uppercase;letter-spacing:2px;\">AI Revenue Recovery</p>" +
+                "<h2 style=\"color:#f8fafc;font-size:20px;margin:0 0 12px 0;\">Verify Your Email Address</h2>" +
+                "<p style=\"color:#cbd5e1;font-size:14px;line-height:1.6;margin:0 0 24px 0;\">Please use the verification code below to verify your email and complete your Revive merchant registration.</p>" +
+                "<div style=\"background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:12px;padding:20px;margin-bottom:24px;\">" +
+                "<span style=\"font-family:monospace;font-size:36px;font-weight:700;color:#34d399;letter-spacing:8px;\">" + otp + "</span>" +
+                "</div>" +
+                "<p style=\"color:#64748b;font-size:12px;margin:0 0 16px 0;\">This code expires in 10 minutes. If you did not request this, you can safely ignore this email.</p>" +
+                "<div style=\"border-top:1px solid rgba(255,255,255,0.08);padding-top:16px;color:#475569;font-size:11px;\">" +
+                "© " + currentYear + " Revive Technologies Inc." +
+                "</div>" +
+                "</td></tr></table>" +
+                "</td></tr></table></body></html>";
     }
 }

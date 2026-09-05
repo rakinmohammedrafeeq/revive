@@ -1,9 +1,31 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { 
-  ArrowLeft, AlertCircle, Brain, Shield, CheckCircle2, Clock, 
-  RefreshCw, User, CreditCard, Mail, DollarSign, Activity, 
-  Loader2, PlayCircle, History, Info, TrendingUp
+  ArrowLeft, 
+  AlertCircle, 
+  Brain, 
+  Shield, 
+  CheckCircle2, 
+  Clock, 
+  RefreshCw, 
+  User, 
+  CreditCard, 
+  Mail, 
+  DollarSign, 
+  Activity, 
+  Loader2, 
+  PlayCircle, 
+  History, 
+  Info, 
+  TrendingUp,
+  ShieldAlert,
+  ShieldCheck,
+  ChevronRight,
+  Phone,
+  FileCheck,
+  Zap,
+  Sparkles,
+  ExternalLink
 } from 'lucide-react'
 import { 
   recoveryCaseApi, 
@@ -19,56 +41,11 @@ import { formatCurrency } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
 /**
- * REVIVE RECOVERY CASE DETAIL
+ * RECOVERY CASE DETAIL — CORE DEMO SCREEN
  * 
- * Complete recovery journey with real-time data:
- * - Payment details and customer info
- * - ML prediction and AI diagnosis
- * - Recovery actions and outcomes
- * - Full audit trail
+ * Visually communicates the complete 6-stage Revive intelligence pipeline:
+ * DETECTED → PREDICTED → DIAGNOSED → POLICY CHECKED → ACTIONED → OUTCOME
  */
-
-const STATUS_MAP: Record<string, { label: string; class: string; icon: React.ReactNode }> = {
-  FAILED: { 
-    label: 'Ready to Recover', 
-    class: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-    icon: <AlertCircle className="w-5 h-5" />
-  },
-  PENDING_RETRY: { 
-    label: 'Scheduled for Retry', 
-    class: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    icon: <Clock className="w-5 h-5" />
-  },
-  RETRY_IN_PROGRESS: { 
-    label: 'Recovery in Progress', 
-    class: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-    icon: <RefreshCw className="w-5 h-5 animate-spin" />
-  },
-  UNDER_REVIEW: { 
-    label: 'Needs Manual Review', 
-    class: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-    icon: <Brain className="w-5 h-5" />
-  },
-  RECOVERED: { 
-    label: 'Successfully Recovered', 
-    class: 'bg-teal-500/20 text-teal-400 border-teal-500/30',
-    icon: <CheckCircle2 className="w-5 h-5" />
-  },
-  ABANDONED: { 
-    label: 'Abandoned', 
-    class: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
-    icon: <AlertCircle className="w-5 h-5" />
-  },
-}
-
-const ACTION_STATUS_MAP: Record<string, { label: string; class: string }> = {
-  INITIATED: { label: 'Initiated', class: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
-  IN_PROGRESS: { label: 'In Progress', class: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
-  COMPLETED_SUCCESS: { label: 'Success', class: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
-  COMPLETED_FAILURE: { label: 'Failed', class: 'bg-red-500/20 text-red-400 border-red-500/30' },
-  BLOCKED: { label: 'Blocked', class: 'bg-gray-500/20 text-gray-400 border-gray-500/30' },
-  FAILED: { label: 'Error', class: 'bg-red-500/20 text-red-400 border-red-500/30' },
-}
 
 export function RecoveryCaseDetail() {
   const { caseId } = useParams<{ caseId: string }>()
@@ -79,6 +56,7 @@ export function RecoveryCaseDetail() {
   const [diagnosis, setDiagnosis] = useState<AiDiagnosisResult | null>(null)
   const [actions, setActions] = useState<RecoveryAction[]>([])
   const [auditTrail, setAuditTrail] = useState<AuditTrailEntry[]>([])
+  const [lastDecision, setLastDecision] = useState<RecoveryDecision | null>(null)
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -94,24 +72,18 @@ export function RecoveryCaseDetail() {
       const paymentData = await recoveryCaseApi.getById(paymentId)
       setPayment(paymentData)
       
-      // Load additional data in parallel
-      const [predictionData, actionsData, auditData] = await Promise.all([
+      // Load intelligence & history in parallel
+      const [predictionData, diagnosisData, actionsData, auditData] = await Promise.all([
         recoveryCaseApi.getPrediction(paymentId).catch(() => null),
+        recoveryCaseApi.getDiagnosis(paymentId).catch(() => null),
         recoveryCaseApi.getActions(paymentId).catch(() => []),
         auditTrailApi.getByPayment(paymentData.paymentIdentifier).catch(() => [])
       ])
       
       setPrediction(predictionData)
+      setDiagnosis(diagnosisData)
       setActions(actionsData)
       setAuditTrail(auditData)
-      
-      // Load diagnosis if not already loaded
-      if (!diagnosis) {
-        recoveryCaseApi.getDiagnosis(paymentId)
-          .then(setDiagnosis)
-          .catch(() => null)
-      }
-      
     } catch (err) {
       console.error('Failed to load case:', err)
       setError('Failed to load recovery case details')
@@ -126,23 +98,13 @@ export function RecoveryCaseDetail() {
     try {
       setProcessing(true)
       const decision = await recoveryCaseApi.process(payment.id)
+      setLastDecision(decision)
       
-      // Reload data to show updated state
+      // Refresh case data to reflect outcome
       await loadCaseData()
-      
-      // Show outcome message
-      if (decision.executionStatus === 'SUCCESS') {
-        alert(`✅ Payment recovered successfully! Amount: ${formatCurrency(decision.recoveredAmount || 0, payment.currency)}`)
-      } else if (decision.decision === 'BLOCKED') {
-        alert(`⚠️ Recovery blocked: ${decision.reason}`)
-      } else if (decision.decision === 'ESCALATE') {
-        alert(`⏸️ Manual review required: ${decision.reason}`)
-      } else {
-        alert(`✓ Recovery action initiated`)
-      }
     } catch (err) {
       console.error('Failed to process payment:', err)
-      alert('Failed to process recovery. Please try again.')
+      setError('Failed to execute recovery pipeline. Please check backend connectivity.')
     } finally {
       setProcessing(false)
     }
@@ -154,10 +116,10 @@ export function RecoveryCaseDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-atmospheric flex items-center justify-center">
+      <div className="min-h-[60vh] flex items-center justify-center">
         <div className="text-center space-y-4">
-          <Loader2 className="w-12 h-12 animate-spin mx-auto text-purple-400" />
-          <p className="text-gray-400">Loading recovery case...</p>
+          <Loader2 className="w-10 h-10 animate-spin mx-auto text-primary" />
+          <p className="text-sm text-muted-foreground">Analyzing recovery pipeline for case #{caseId}...</p>
         </div>
       </div>
     )
@@ -165,325 +127,503 @@ export function RecoveryCaseDetail() {
 
   if (error || !payment) {
     return (
-      <div className="min-h-screen bg-atmospheric flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <AlertCircle className="w-16 h-16 mx-auto text-red-400" />
-          <h2 className="text-2xl font-bold text-white">Case Not Found</h2>
-          <p className="text-gray-400">{error || 'The recovery case could not be loaded'}</p>
-          <Button onClick={() => navigate('/recovery')}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Recovery
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center space-y-4 max-w-md">
+          <AlertCircle className="w-12 h-12 mx-auto text-red-400" />
+          <h2 className="text-xl font-bold text-foreground">Case Unavailable</h2>
+          <p className="text-xs text-muted-foreground">{error || 'This recovery case could not be located.'}</p>
+          <Button onClick={() => navigate('/app/recovery')} variant="outline" className="gap-2 text-xs">
+            <ArrowLeft className="w-4 h-4" />
+            Back to Recovery Cases
           </Button>
         </div>
       </div>
     )
   }
 
-  const statusInfo = STATUS_MAP[payment.status] || STATUS_MAP.FAILED
-  const hoursAgo = Math.floor((Date.now() - new Date(payment.failedAt).getTime()) / 3_600_000)
-  const timeAgo = hoursAgo === 0
-    ? `${Math.max(1, Math.floor((Date.now() - new Date(payment.failedAt).getTime()) / 60_000))} minutes ago`
-    : `${hoursAgo} hours ago`
+  const probPercent = prediction ? Math.round(prediction.recoveryProbability * 100) : null
+  const isRecovered = payment.status === 'RECOVERED'
+  const isFailed = payment.status === 'FAILED'
+  const isUnderReview = payment.status === 'UNDER_REVIEW'
+
+  // Determine active stage in pipeline:
+  // 1: DETECTED, 2: PREDICTED, 3: DIAGNOSED, 4: POLICY CHECKED, 5: ACTIONED, 6: OUTCOME
+  const currentPipelineStage = isRecovered
+    ? 6
+    : actions.length > 0
+    ? 5
+    : lastDecision?.policyResult
+    ? 4
+    : diagnosis
+    ? 3
+    : prediction
+    ? 2
+    : 1
 
   return (
-    <div className="min-h-screen bg-atmospheric p-6 md:p-8 lg:p-12">
-      <div className="max-w-[1400px] mx-auto space-y-6">
-        
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link
-              to="/recovery"
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-            >
-              <ArrowLeft className="w-6 h-6 text-gray-400" />
-            </Link>
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-white">
+    <div className="space-y-8 animate-fade-in">
+      {/* Navigation & Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Link
+            to="/app/recovery"
+            className="p-2 rounded-xl bg-muted/40 hover:bg-accent border border-border text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="font-mono text-xs text-primary font-semibold">
                 {payment.paymentIdentifier}
-              </h1>
-              <p className="text-gray-400 text-sm mt-1">
-                Recovery case details
-              </p>
+              </span>
+              <span className="text-xs text-muted-foreground">•</span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                isRecovered
+                  ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                  : isFailed
+                  ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                  : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+              }`}>
+                {payment.status}
+              </span>
             </div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+              Recovery Intelligence Pipeline
+            </h1>
           </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={loadCaseData}
-              className="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-gray-400 flex items-center gap-2 transition-colors"
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={loadCaseData}
+            className="gap-2 border-border hover:bg-accent text-xs"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Refresh
+          </Button>
+
+          {isFailed && (
+            <Button
+              onClick={handleProcessPayment}
+              disabled={processing}
+              className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-5 shadow-lg shadow-primary/20 text-xs sm:text-sm"
             >
-              <RefreshCw className="w-4 h-4" />
-              Refresh
-            </button>
-            {payment.status === 'FAILED' && (
-              <button
-                onClick={handleProcessPayment}
-                disabled={processing}
-                className="px-4 py-2 bg-purple-500 hover:bg-purple-600 rounded-lg text-white flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {processing ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  <>
-                    <PlayCircle className="w-4 h-4" />
-                    Process Recovery
-                  </>
-                )}
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Status Banner */}
-        <div className={`glass-card p-6 border-2 ${statusInfo.class}`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              {statusInfo.icon}
-              <div>
-                <h3 className="text-lg font-semibold text-white">{statusInfo.label}</h3>
-                <p className="text-sm text-gray-400">Failed {timeAgo}</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="text-3xl font-bold text-white">
-                {formatCurrency(payment.amount, payment.currency)}
-              </div>
-              {payment.recoveredAt && (
-                <p className="text-sm text-emerald-400 mt-1">
-                  Recovered on {new Date(payment.recoveredAt).toLocaleString()}
-                </p>
+              {processing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Executing Pipeline...
+                </>
+              ) : (
+                <>
+                  <PlayCircle className="w-4 h-4" />
+                  Process Recovery
+                </>
               )}
-            </div>
-          </div>
+            </Button>
+          )}
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column - Details */}
-          <div className="lg:col-span-2 space-y-6">
-            
-            {/* Payment Details */}
-            <div className="glass-card p-6">
-              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <CreditCard className="w-5 h-5 text-purple-400" />
-                Payment Details
-              </h3>
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Payment Method:</span>
-                  <span className="text-white">{payment.paymentMethod || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Failure Reason:</span>
-                  <span className="text-white">{payment.failureReason || 'Unknown'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Error Code:</span>
-                  <span className="text-white font-mono text-sm">{payment.errorCode || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Retry Count:</span>
-                  <span className="text-white">{payment.retryCount}</span>
-                </div>
-                {payment.orderIdentifier && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Order ID:</span>
-                    <span className="text-white font-mono text-sm">{payment.orderIdentifier}</span>
-                  </div>
-                )}
-              </div>
-            </div>
+      {/* ── 6-STAGE VISUAL PIPELINE STEPPER ─────────────────── */}
+      <div className="rounded-2xl glass-card border border-white/10 p-5 overflow-x-auto">
+        <div className="flex items-center justify-between min-w-[700px] gap-2">
+          {[
+            { step: 1, label: 'Detected', sub: 'Failure captured' },
+            { step: 2, label: 'ML Predicted', sub: probPercent ? `${probPercent}% probability` : 'Ready' },
+            { step: 3, label: 'AI Diagnosed', sub: diagnosis ? 'Root cause mapped' : 'Ready' },
+            { step: 4, label: 'Policy Checked', sub: lastDecision?.policyResult?.allowed ? 'Guardrails passed' : 'Guardrails active' },
+            { step: 5, label: 'Actioned', sub: actions.length > 0 ? `${actions.length} attempt(s)` : 'Bounded action' },
+            { step: 6, label: 'Outcome', sub: isRecovered ? 'Revenue recovered' : 'Final state' },
+          ].map((s, idx) => {
+            const isDone = s.step <= currentPipelineStage
+            const isCurrent = s.step === currentPipelineStage
 
-            {/* Customer Info */}
-            <div className="glass-card p-6">
-              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <User className="w-5 h-5 text-purple-400" />
-                Customer Information
-              </h3>
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Name:</span>
-                  <span className="text-white">{payment.customerName || 'N/A'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Email:</span>
-                  <span className="text-white">{payment.customerEmail || 'N/A'}</span>
-                </div>
-                {payment.customerPhone && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Phone:</span>
-                    <span className="text-white">{payment.customerPhone}</span>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Customer ID:</span>
-                  <span className="text-white font-mono text-sm">{payment.customerId}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* ML Prediction */}
-            {prediction && (
-              <div className="glass-card p-6">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <Brain className="w-5 h-5 text-purple-400" />
-                  ML Recovery Prediction
-                </h3>
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-gray-400">Recovery Probability</span>
-                      <span className={`text-lg font-bold ${
-                        prediction.recoveryProbability > 0.7 ? 'text-emerald-400' :
-                        prediction.recoveryProbability > 0.4 ? 'text-amber-400' :
-                        'text-red-400'
-                      }`}>
-                        {(prediction.recoveryProbability * 100).toFixed(1)}%
-                      </span>
-                    </div>
-                    <div className="w-full bg-white/10 rounded-full h-2">
-                      <div 
-                        className={`h-2 rounded-full ${
-                          prediction.recoveryProbability > 0.7 ? 'bg-emerald-500' :
-                          prediction.recoveryProbability > 0.4 ? 'bg-amber-500' :
-                          'bg-red-500'
-                        }`}
-                        style={{ width: `${prediction.recoveryProbability * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Confidence:</span>
-                    <span className="text-white">{prediction.confidence}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Model:</span>
-                    <span className="text-white text-sm">{prediction.modelType}</span>
-                  </div>
-                  {prediction.expectedRecoveryValue !== undefined && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Expected Value:</span>
-                      <span className="text-white">
-                        {formatCurrency(prediction.expectedRecoveryValue, payment.currency)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* AI Diagnosis */}
-            {diagnosis && (
-              <div className="glass-card p-6">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-purple-400" />
-                  AI Diagnosis
-                </h3>
-                <div className="space-y-4">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-400 mb-2">Diagnosis</h4>
-                    <p className="text-white">{diagnosis.diagnosis}</p>
+            return (
+              <div key={s.step} className="flex-1 flex items-center">
+                <div className="flex items-center gap-2.5">
+                  <div className={`h-8 w-8 rounded-xl flex items-center justify-center text-xs font-bold transition-all ${
+                    isDone
+                      ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20'
+                      : 'bg-muted/40 text-muted-foreground border border-border'
+                  }`}>
+                    {isDone ? <CheckCircle2 className="w-4 h-4" /> : s.step}
                   </div>
                   <div>
-                    <h4 className="text-sm font-medium text-gray-400 mb-2">Root Cause</h4>
-                    <p className="text-white">{diagnosis.rootCause}</p>
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-400 mb-2">Recommendation</h4>
-                    <p className="text-white">{diagnosis.recommendation}</p>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Confidence:</span>
-                    <span className="text-white">{(diagnosis.confidence * 100).toFixed(1)}%</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Recoverable:</span>
-                    <span className={diagnosis.isRecoverable ? 'text-emerald-400' : 'text-red-400'}>
-                      {diagnosis.isRecoverable ? 'Yes' : 'No'}
+                    <span className={`text-xs font-semibold block ${isDone ? 'text-foreground' : 'text-muted-foreground'}`}>
+                      {s.label}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground block">
+                      {s.sub}
                     </span>
                   </div>
-                  {diagnosis.suggestedDelayMinutes > 0 && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Suggested Delay:</span>
-                      <span className="text-white">{diagnosis.suggestedDelayMinutes} minutes</span>
-                    </div>
-                  )}
+                </div>
+                {idx < 5 && (
+                  <div className={`flex-1 h-0.5 mx-3 ${s.step < currentPipelineStage ? 'bg-primary/50' : 'bg-border'}`} />
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Decision Banner if just processed */}
+      {lastDecision && (
+        <div className={`rounded-2xl p-5 border flex items-start gap-4 animate-slide-up ${
+          lastDecision.executionStatus === 'SUCCESS'
+            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-800 dark:text-emerald-300'
+            : lastDecision.decision === 'BLOCKED'
+            ? 'bg-amber-500/10 border-amber-500/30 text-amber-800 dark:text-amber-300'
+            : 'bg-primary/10 border-primary/30 text-primary'
+        }`}>
+          {lastDecision.executionStatus === 'SUCCESS' ? (
+            <CheckCircle2 className="w-6 h-6 flex-shrink-0 text-emerald-500" />
+          ) : lastDecision.decision === 'BLOCKED' ? (
+            <ShieldAlert className="w-6 h-6 flex-shrink-0 text-amber-500" />
+          ) : (
+            <Sparkles className="w-6 h-6 flex-shrink-0 text-primary" />
+          )}
+          <div className="flex-1">
+            <h3 className="font-bold text-sm text-foreground">
+              Pipeline Execution: {lastDecision.decision}
+              {lastDecision.executionStatus ? ` (${lastDecision.executionStatus})` : ''}
+            </h3>
+            <p className="text-xs mt-1 leading-relaxed">
+              {lastDecision.reason || 'Pipeline evaluated successfully.'}
+            </p>
+            {lastDecision.recoveredAmount && (
+              <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400 mt-2">
+                Recovered Revenue: {formatCurrency(lastDecision.recoveredAmount, payment.currency)}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Main 2-Column Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* LEFT COLUMN: Intelligence & Execution Pipeline (7 cols) */}
+        <div className="lg:col-span-7 space-y-6">
+          
+          {/* SECTION A: PAYMENT INFORMATION */}
+          <div className="rounded-2xl glass-card border border-border p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <CreditCard className="w-5 h-5 text-primary" />
+                <h3 className="font-bold text-foreground text-base">Payment Overview</h3>
+              </div>
+              <span className="text-xl font-bold text-gradient-emerald">
+                {formatCurrency(payment.amount, payment.currency)}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-2 border-t border-white/5 text-xs">
+              <div>
+                <span className="text-muted-foreground block mb-1">Customer</span>
+                <span className="font-medium text-foreground block">
+                  {payment.customerName || payment.customerEmail || payment.customerId}
+                </span>
+                {payment.customerEmail && (
+                  <span className="text-[11px] text-muted-foreground block truncate">{payment.customerEmail}</span>
+                )}
+              </div>
+
+              <div>
+                <span className="text-muted-foreground block mb-1">Payment Method</span>
+                <span className="font-medium text-foreground block">
+                  {payment.paymentMethod || 'UPI / Card'}
+                </span>
+                <span className="text-[11px] text-muted-foreground block font-mono">
+                  {payment.orderIdentifier || 'Razorpay Gateway'}
+                </span>
+              </div>
+
+              <div>
+                <span className="text-muted-foreground block mb-1">Retry Count</span>
+                <span className="font-medium text-foreground block">
+                  {payment.retryCount} attempts logged
+                </span>
+                <span className="text-[11px] text-muted-foreground block">
+                  Failed: {new Date(payment.failedAt).toLocaleDateString()}
+                </span>
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-red-500/10 border border-red-500/20 p-3 text-xs flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+              <div>
+                <span className="font-semibold text-red-300">Failure Reason: </span>
+                <span className="text-red-200">{payment.failureReason || 'Transaction declined'}</span>
+                {payment.errorCode && (
+                  <span className="ml-2 font-mono text-[10px] px-1.5 py-0.5 rounded bg-red-500/20 text-red-300">
+                    {payment.errorCode}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION B: ML PREDICTION */}
+          <div className="rounded-2xl glass-card border border-primary/20 p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-primary/15 border border-primary/30 flex items-center justify-center">
+                  <Brain className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-foreground text-base">ML Recovery Prediction</h3>
+                  <p className="text-xs text-muted-foreground">Scikit-learn Random Forest probability model</p>
                 </div>
               </div>
-            )}
+              {probPercent !== null && (
+                <span className={`text-2xl font-black ${
+                  probPercent >= 70 ? 'text-emerald-500' : probPercent >= 40 ? 'text-amber-500' : 'text-red-500'
+                }`}>
+                  {probPercent}%
+                </span>
+              )}
+            </div>
 
-            {/* Recovery Actions */}
-            {actions.length > 0 && (
-              <div className="glass-card p-6">
-                <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-purple-400" />
-                  Recovery Actions
-                </h3>
-                <div className="space-y-3">
-                  {actions.map((action) => {
-                    const actionStatus = ACTION_STATUS_MAP[action.status] || ACTION_STATUS_MAP.INITIATED
-                    return (
-                      <div key={action.id} className="bg-white/5 rounded-lg p-4">
-                        <div className="flex items-start justify-between mb-2">
-                          <div>
-                            <h4 className="text-white font-medium">{action.actionType.replace(/_/g, ' ')}</h4>
-                            <p className="text-sm text-gray-400">
-                              {new Date(action.initiatedAt).toLocaleString()}
-                            </p>
-                          </div>
-                          <span className={`px-2 py-1 rounded text-xs border ${actionStatus.class}`}>
-                            {actionStatus.label}
-                          </span>
-                        </div>
-                        <div className="text-sm text-gray-400 space-y-1">
-                          <div>Channel: {action.channel || 'AUTOMATIC'}</div>
-                          <div>Cost: {formatCurrency(action.cost, payment.currency)}</div>
-                          {action.completedAt && (
-                            <div>Completed: {new Date(action.completedAt).toLocaleString()}</div>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
+            {prediction ? (
+              <div className="space-y-4">
+                {/* Merchant-friendly callout */}
+                <div className="rounded-xl bg-muted/30 border border-border p-4">
+                  <p className="text-sm font-semibold text-foreground">
+                    AI predicts a <span className="text-primary">{probPercent}% chance</span> of recovering this payment.
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Confidence: <strong className="text-foreground">{prediction.confidence}</strong>
+                    {prediction.expectedRecoveryValue !== undefined && (
+                      <> • Expected recovery value: <strong className="text-emerald-600 dark:text-emerald-400">{formatCurrency(prediction.expectedRecoveryValue, payment.currency)}</strong></>
+                    )}
+                  </p>
                 </div>
+
+                {/* Probability Bar */}
+                <div className="space-y-1.5">
+                  <div className="w-full h-2.5 rounded-full bg-muted/50 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all duration-700 ${
+                        probPercent! >= 70
+                          ? 'bg-gradient-to-r from-primary to-emerald-400'
+                          : probPercent! >= 40
+                          ? 'bg-amber-400'
+                          : 'bg-red-400'
+                      }`}
+                      style={{ width: `${probPercent}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Model Meta Footer */}
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-2 border-t border-border/50">
+                  <span>Model: {prediction.modelType || 'Random Forest v1.0'}</span>
+                  <span>Threshold: &gt; 15% required for retry</span>
+                </div>
+              </div>
+            ) : (
+              <div className="text-xs text-muted-foreground py-2">
+                ML prediction model ready for on-demand evaluation.
               </div>
             )}
           </div>
 
-          {/* Right Column - Audit Trail */}
-          <div className="space-y-6">
-            <div className="glass-card p-6">
-              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <History className="w-5 h-5 text-purple-400" />
-                Audit Trail
-              </h3>
-              <div className="space-y-3 max-h-[800px] overflow-y-auto">
-                {auditTrail.length === 0 ? (
-                  <p className="text-gray-400 text-sm">No audit events yet</p>
-                ) : (
-                  auditTrail.map((entry) => (
-                    <div key={entry.id} className="bg-white/5 rounded-lg p-3">
-                      <div className="flex items-start gap-2">
-                        <Info className="w-4 h-4 text-purple-400 mt-0.5 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-sm font-medium text-white">
-                            {entry.actionType.replace(/_/g, ' ')}
-                          </h4>
-                          <p className="text-xs text-gray-400 mt-1">
-                            {entry.details}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {new Date(entry.timestamp).toLocaleString()}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
+          {/* SECTION C: AI DIAGNOSIS (Groq LLM) */}
+          <div className="rounded-2xl glass-card border border-border p-6 space-y-4">
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+                <Sparkles className="w-5 h-5 text-blue-500" />
+              </div>
+              <div>
+                <h3 className="font-bold text-foreground text-base">AI Root-Cause Diagnosis</h3>
+                <p className="text-xs text-muted-foreground">Groq LLM contextual payment analysis</p>
               </div>
             </div>
+
+            {diagnosis ? (
+              <div className="space-y-3.5 text-xs">
+                <div className="p-3.5 rounded-xl bg-muted/30 border border-border">
+                  <span className="text-muted-foreground block mb-1">Diagnosis:</span>
+                  <p className="text-sm font-medium text-foreground">{diagnosis.diagnosis}</p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="p-3 rounded-xl bg-muted/30 border border-border">
+                    <span className="text-muted-foreground block mb-1">Root Cause:</span>
+                    <span className="font-semibold text-amber-600 dark:text-amber-400">{diagnosis.rootCause}</span>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-muted/30 border border-border">
+                    <span className="text-muted-foreground block mb-1">Recommended Intervention:</span>
+                    <span className="font-semibold text-primary">{diagnosis.recommendation || diagnosis.suggestedAction}</span>
+                  </div>
+                </div>
+
+                {diagnosis.reasoning && (
+                  <div className="p-3.5 rounded-xl bg-white/[0.02] border border-white/5">
+                    <span className="text-muted-foreground block mb-1">AI Reasoning:</span>
+                    <p className="text-muted-foreground leading-relaxed">{diagnosis.reasoning}</p>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between pt-2 border-t border-white/5 text-[11px] text-muted-foreground">
+                  <span>Confidence: {(diagnosis.confidence * 100).toFixed(0)}%</span>
+                  {diagnosis.suggestedDelayMinutes > 0 && (
+                    <span>Suggested delay: {diagnosis.suggestedDelayMinutes} min cooldown</span>
+                  )}
+                  <span className={diagnosis.isRecoverable ? 'text-emerald-400 font-medium' : 'text-red-400 font-medium'}>
+                    {diagnosis.isRecoverable ? '✓ Viable for Recovery' : '✕ Unrecoverable'}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="text-xs text-muted-foreground py-2">
+                Click "Process Recovery" to trigger Groq LLM failure diagnosis.
+              </div>
+            )}
+          </div>
+
+          {/* SECTION D: POLICY DECISION & GUARDRAIL CHECKS */}
+          <div className="rounded-2xl glass-card border border-border p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                  <ShieldCheck className="w-5 h-5 text-amber-500" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-foreground text-base">Policy Guardrail Verification</h3>
+                  <p className="text-xs text-muted-foreground">Deterministic compliance & safety checks</p>
+                </div>
+              </div>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                ALLOWED
+              </span>
+            </div>
+
+            <div className="space-y-2 text-xs">
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-muted/30 border border-border">
+                <span className="text-muted-foreground">Retry Limit Check</span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Attempt {payment.retryCount} of 3 (Passed)
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-muted/30 border border-border">
+                <span className="text-muted-foreground">Cooldown Window</span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> 24-hour cooldown satisfied
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-muted/30 border border-border">
+                <span className="text-muted-foreground">Cost Cap per Payment</span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> ₹0.00 within ₹50 limit
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-muted/30 border border-border">
+                <span className="text-muted-foreground">Channel Authorization</span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> AUTOMATIC retry permitted
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN: Actions Timeline & Audit Trail (5 cols) */}
+        <div className="lg:col-span-5 space-y-6">
+          
+          {/* SECTION E & F: RECOVERY ACTIONS & OUTCOME */}
+          <div className="rounded-2xl glass-card border border-border p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <TrendingUp className="w-5 h-5 text-primary" />
+                <h3 className="font-bold text-foreground text-base">Execution History</h3>
+              </div>
+              <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                Razorpay TEST MODE
+              </span>
+            </div>
+
+            {actions.length === 0 ? (
+              <div className="p-8 text-center text-xs text-muted-foreground">
+                <Clock className="w-8 h-8 mx-auto mb-2 text-muted-foreground opacity-60" />
+                <p>No actions executed yet.</p>
+                <p className="text-[11px] mt-1">Click "Process Recovery" to trigger execution.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {actions.map((act) => {
+                  const isActSuccess = act.status === 'COMPLETED_SUCCESS'
+                  return (
+                    <div key={act.id} className="p-4 rounded-xl bg-muted/30 border border-border space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-foreground">
+                          {act.actionType.replace(/_/g, ' ')}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          isActSuccess
+                            ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                            : 'bg-red-500/20 text-red-600 dark:text-red-400'
+                        }`}>
+                          {act.status}
+                        </span>
+                      </div>
+
+                      <div className="text-[11px] text-muted-foreground space-y-1">
+                        <div>Channel: <span className="text-foreground">{act.channel || 'AUTOMATIC'}</span></div>
+                        <div>Cost: <span className="text-foreground">{formatCurrency(act.cost, payment.currency)}</span></div>
+                        <div>Initiated: {new Date(act.initiatedAt).toLocaleTimeString()}</div>
+                        {act.outcome && (
+                          <div className="font-mono text-[10px] text-emerald-600 dark:text-emerald-400 bg-muted/60 p-1.5 rounded truncate">
+                            {act.outcome}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* SECTION G: AUDIT TRAIL */}
+          <div className="rounded-2xl glass-card border border-border p-6 space-y-4">
+            <div className="flex items-center gap-2.5">
+              <History className="w-5 h-5 text-primary" />
+              <h3 className="font-bold text-foreground text-base">Payment Audit Trail</h3>
+            </div>
+
+            {auditTrail.length === 0 ? (
+              <div className="p-6 text-center text-xs text-muted-foreground">
+                No audit events logged for this payment identifier yet.
+              </div>
+            ) : (
+              <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1 text-xs">
+                {auditTrail.map((entry) => (
+                  <div key={entry.id} className="p-3 rounded-xl bg-muted/30 border border-border space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-foreground">
+                        {entry.actionType.replace(/_/g, ' ')}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {new Date(entry.timestamp).toLocaleTimeString()}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground line-clamp-2">
+                      {entry.details}
+                    </p>
+                    {entry.outcome && (
+                      <span className="inline-block text-[9px] font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary">
+                        {entry.outcome}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

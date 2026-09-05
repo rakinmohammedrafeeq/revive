@@ -35,7 +35,7 @@ public class DataInitializer implements CommandLineRunner {
         }
         if (!userRepository.existsByEmail("rakinmohammedrafeeq@gmail.com")) {
             User admin = User.builder()
-                    .name("Admin")
+                    .name("Rakin Mohammed Rafeeq")
                     .email("rakinmohammedrafeeq@gmail.com")
                     .password(passwordEncoder.encode("Admin@123"))
                     .role(Role.ADMIN)
@@ -45,14 +45,23 @@ public class DataInitializer implements CommandLineRunner {
             userRepository.save(admin);
             logger.info("✅ Default admin user created: rakinmohammedrafeeq@gmail.com");
         } else {
-            // User exists - check if they're ADMIN, if not, upgrade them
+            // User exists - check if they're ADMIN and update name if needed
             userRepository.findByEmail("rakinmohammedrafeeq@gmail.com").ifPresent(user -> {
+                boolean changed = false;
                 if (user.getRole() != Role.ADMIN) {
                     user.setRole(Role.ADMIN);
-                    userRepository.save(user);
+                    changed = true;
                     logger.info("✅ Upgraded existing user to ADMIN: {}", user.getEmail());
+                }
+                if (user.getName() == null || user.getName().equalsIgnoreCase("Admin") || user.getName().isBlank()) {
+                    user.setName("Rakin Mohammed Rafeeq");
+                    changed = true;
+                    logger.info("✅ Updated admin name to 'Rakin Mohammed Rafeeq': {}", user.getEmail());
+                }
+                if (changed) {
+                    userRepository.save(user);
                 } else {
-                    logger.info("ℹ️  Admin user already exists with ADMIN role.");
+                    logger.info("ℹ️  Admin user already exists with ADMIN role and updated name.");
                 }
             });
         }

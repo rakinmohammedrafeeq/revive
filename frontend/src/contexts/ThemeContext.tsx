@@ -27,10 +27,14 @@ function getInitialTheme(): Theme {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(getInitialTheme)
+  const [theme, setThemeState] = useState<Theme>(getInitialTheme)
   const [resolvedTheme, setResolvedTheme] = useState<'dark' | 'light'>(() => 
-    theme === 'system' ? getSystemTheme() : theme
+    getInitialTheme() === 'system' ? getSystemTheme() : getInitialTheme() as 'dark' | 'light'
   )
+
+  const setTheme = (newTheme: Theme) => {
+    setThemeState(newTheme)
+  }
 
   useEffect(() => {
     const root = document.documentElement
@@ -38,10 +42,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     
     setResolvedTheme(effectiveTheme)
     
+    // Remove existing theme classes
+    root.classList.remove('dark', 'light')
+    
+    // Apply the effective theme
     if (effectiveTheme === 'dark') {
       root.classList.add('dark')
     } else {
-      root.classList.remove('dark')
+      root.classList.add('light')
     }
     
     try {
@@ -51,32 +59,42 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   }, [theme])
 
-  // Listen for system theme changes
+  // Listen for system theme changes when theme is set to 'system'
   useEffect(() => {
     if (theme !== 'system') return
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    const handleChange = (e: MediaQueryListEvent) => {
-      const newTheme = e.matches ? 'dark' : 'light'
+    
+    const applySystemTheme = (matches: boolean) => {
+      const newTheme = matches ? 'dark' : 'light'
       setResolvedTheme(newTheme)
       const root = document.documentElement
+      root.classList.remove('dark', 'light')
       if (newTheme === 'dark') {
         root.classList.add('dark')
       } else {
-        root.classList.remove('dark')
+        root.classList.add('light')
       }
     }
 
-    mediaQuery.addEventListener('change', handleChange)
-    return () => mediaQuery.removeEventListener('change', handleChange)
+    const handleChange = (event: MediaQueryListEvent) => applySystemTheme(event.matches)
+
+    // Initial check
+    applySystemTheme(mediaQuery.matches)
+
+    // Listen for changes
+    if (mediaQuery.addEventListener) {
+      mediaQuery.addEventListener('change', handleChange)
+      return () => mediaQuery.removeEventListener('change', handleChange)
+    } else {
+      // Fallback for older browsers
+      mediaQuery.addListener(handleChange as any)
+      return () => mediaQuery.removeListener(handleChange as any)
+    }
   }, [theme])
 
   const toggleTheme = () => {
-    setTheme((prev) => {
-      if (prev === 'system') return 'light'
-      if (prev === 'light') return 'dark'
-      return 'system'
-    })
+    setTheme(theme === 'system' ? 'light' : theme === 'light' ? 'dark' : 'system')
   }
 
   return (

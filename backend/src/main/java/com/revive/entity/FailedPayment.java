@@ -1,5 +1,6 @@
 package com.revive.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.revive.enums.PaymentStatus;
 import jakarta.persistence.*;
 import lombok.*;
@@ -31,6 +32,7 @@ public class FailedPayment {
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "workspace_id", nullable = false)
+    @JsonIgnore
     private Workspace workspace;
 
     /**

@@ -20,7 +20,12 @@ export function getStoredUser(): User | null {
   }
 
   try {
-    return JSON.parse(raw) as User
+    const user = JSON.parse(raw) as User
+    if (user && user.email === 'rakinmohammedrafeeq@gmail.com' && (!user.name || user.name.trim().toLowerCase() === 'admin')) {
+      user.name = 'Rakin Mohammed Rafeeq'
+      localStorage.setItem(USER_KEY, JSON.stringify(user))
+    }
+    return user
   } catch {
     localStorage.removeItem(USER_KEY)
     return null
@@ -39,8 +44,14 @@ export function getStoredAuthState(): StoredAuthState | null {
 }
 
 export function persistAuthState(token: string, user: User): void {
+  const normalizedUser = {
+    ...user,
+    name: (user.email === 'rakinmohammedrafeeq@gmail.com' && (!user.name || user.name.trim().toLowerCase() === 'admin'))
+      ? 'Rakin Mohammed Rafeeq'
+      : user.name,
+  }
   localStorage.setItem(TOKEN_KEY, token)
-  localStorage.setItem(USER_KEY, JSON.stringify(user))
+  localStorage.setItem(USER_KEY, JSON.stringify(normalizedUser))
   window.dispatchEvent(new CustomEvent(AUTH_EVENT, { detail: { type: 'login' } }))
 }
 
@@ -57,9 +68,12 @@ export function onAuthStateChange(callback: () => void): () => void {
 }
 
 export function toUser(auth: AuthResponse): User {
+  const name = (auth.email === 'rakinmohammedrafeeq@gmail.com' && (!auth.name || auth.name.trim().toLowerCase() === 'admin'))
+    ? 'Rakin Mohammed Rafeeq'
+    : auth.name
   return {
     id: auth.userId ?? 0,
-    name: auth.name,
+    name,
     email: auth.email,
     role: auth.role,
   }

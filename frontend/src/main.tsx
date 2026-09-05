@@ -8,6 +8,12 @@ import { ScrollToTop } from '@/components/layout/ScrollToTop'
 import App from './App'
 import './index.css'
 
+// Diagnostic: Check for duplicate React instances
+if (import.meta.env.DEV) {
+  console.log('React version:', React.version)
+  console.log('React instance:', React)
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

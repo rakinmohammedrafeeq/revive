@@ -1,296 +1,270 @@
-import { ScrollText, CheckCircle2, XCircle, Clock, Shield, TrendingUp, AlertCircle } from 'lucide-react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { useState, useEffect } from 'react'
+import { 
+  ScrollText, 
+  Search, 
+  Filter, 
+  CheckCircle2, 
+  XCircle, 
+  Clock, 
+  Shield, 
+  TrendingUp, 
+  AlertCircle, 
+  Loader2, 
+  RefreshCw,
+  Brain,
+  Sparkles,
+  Layers,
+  ChevronDown,
+  ChevronUp,
+  FileText
+} from 'lucide-react'
+import { auditTrailApi, type AuditTrailEntry } from '@/api/recoveryApi'
+import { Button } from '@/components/ui/button'
 
-// Mock audit trail data - will be replaced with real API
-const auditEvents = [
-  {
-    id: '1',
-    timestamp: '2026-09-01 14:32:15',
-    event: 'Payment Detected',
-    actor: 'System',
-    target: 'Payment #12458',
-    details: 'Failed payment detected: ₹12,500 - Insufficient funds',
-    outcome: 'detected',
-  },
-  {
-    id: '2',
-    timestamp: '2026-09-01 14:32:16',
-    event: 'AI Diagnosis',
-    actor: 'Revive AI',
-    target: 'Payment #12458',
-    details: 'Analyzed failure pattern: Temporary cash flow issue',
-    outcome: 'success',
-  },
-  {
-    id: '3',
-    timestamp: '2026-09-01 14:32:17',
-    event: 'Policy Evaluation',
-    actor: 'System',
-    target: 'Recovery Policy #3',
-    details: 'Checked eligibility: Passed all guardrails',
-    outcome: 'eligible',
-  },
-  {
-    id: '4',
-    timestamp: '2026-09-01 14:32:18',
-    event: 'Action Proposed',
-    actor: 'Revive AI',
-    target: 'Payment #12458',
-    details: 'Recommended: Retry after 24 hours',
-    outcome: 'pending',
-  },
-  {
-    id: '5',
-    timestamp: '2026-09-01 14:45:22',
-    event: 'Action Approved',
-    actor: 'admin@revive.com',
-    target: 'Recovery Action #891',
-    details: 'Manual approval: Recovery action authorized',
-    outcome: 'approved',
-  },
-  {
-    id: '6',
-    timestamp: '2026-09-02 14:32:20',
-    event: 'Recovery Executed',
-    actor: 'System',
-    target: 'Payment #12458',
-    details: 'Retry attempt executed via payment gateway',
-    outcome: 'executed',
-  },
-  {
-    id: '7',
-    timestamp: '2026-09-02 14:32:45',
-    event: 'Payment Recovered',
-    actor: 'System',
-    target: 'Payment #12458',
-    details: 'Payment successful: ₹12,500 recovered',
-    outcome: 'recovered',
-  },
-  {
-    id: '8',
-    timestamp: '2026-09-02 15:18:33',
-    event: 'Payment Detected',
-    actor: 'System',
-    target: 'Payment #12462',
-    details: 'Failed payment detected: ₹85,000 - Card expired',
-    outcome: 'detected',
-  },
-  {
-    id: '9',
-    timestamp: '2026-09-02 15:18:34',
-    event: 'AI Diagnosis',
-    actor: 'Revive AI',
-    target: 'Payment #12462',
-    details: 'Payment method requires update',
-    outcome: 'success',
-  },
-  {
-    id: '10',
-    timestamp: '2026-09-02 15:18:35',
-    event: 'Policy Evaluation',
-    actor: 'System',
-    target: 'Recovery Policy #7',
-    details: 'High-value payment flagged for manual review',
-    outcome: 'requires_approval',
-  },
-]
-
-const getEventIcon = (event: string) => {
-  if (event.includes('Detected')) return AlertCircle
-  if (event.includes('Diagnosis')) return TrendingUp
-  if (event.includes('Policy')) return Shield
-  if (event.includes('Approved')) return CheckCircle2
-  if (event.includes('Recovered')) return CheckCircle2
-  if (event.includes('Failed')) return XCircle
-  return Clock
-}
-
-const getOutcomeColor = (outcome: string) => {
-  switch (outcome) {
-    case 'success':
-    case 'recovered':
-    case 'approved':
-    case 'eligible':
-      return 'bg-primary/10 text-primary border-primary/20'
-    case 'detected':
-    case 'pending':
-    case 'executed':
-      return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20'
-    case 'requires_approval':
-      return 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20'
-    case 'failed':
-    case 'blocked':
-      return 'bg-destructive/10 text-destructive border-destructive/20'
-    default:
-      return 'bg-muted text-muted-foreground'
-  }
-}
-
+/**
+ * RECOVERY AUDIT TRAIL
+ * 
+ * Traceable, compliant activity log of every AI decision,
+ * ML prediction, policy check, and Razorpay action executed across the portfolio.
+ */
 export function AuditPage() {
+  const [entries, setEntries] = useState<AuditTrailEntry[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [actionFilter, setActionFilter] = useState('all')
+  const [expandedRow, setExpandedRow] = useState<number | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadAuditData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await auditTrailApi.getAll()
+      setEntries(data)
+    } catch (err) {
+      console.error('Failed to load audit trail:', err)
+      setError('Unable to load audit trail from server')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadAuditData()
+  }, [])
+
+  const filteredEntries = entries.filter((item) => {
+    const q = searchQuery.toLowerCase()
+    const matchesSearch = 
+      (item.paymentIdentifier && item.paymentIdentifier.toLowerCase().includes(q)) ||
+      (item.actionType && item.actionType.toLowerCase().includes(q)) ||
+      (item.details && item.details.toLowerCase().includes(q))
+
+    const matchesFilter = actionFilter === 'all' || item.actionType.includes(actionFilter)
+    return matchesSearch && matchesFilter
+  })
+
+  if (loading) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="w-10 h-10 animate-spin mx-auto text-primary" />
+          <p className="text-sm text-muted-foreground">Loading audit log entries...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 animate-fade-in">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Audit</h1>
-        <p className="text-muted-foreground mt-1">
-          Complete operational timeline of recovery decisions and actions
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-primary/20 text-primary border border-primary/30">
+              Audit & Compliance
+            </span>
+            <span className="text-xs font-medium text-muted-foreground">
+              {entries.length} Total Events Logged
+            </span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+            Recovery Decision Audit Trail
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+            Immutable, explainable record of every money-related action taken by Revive: ML probability predictions,
+            AI root-cause diagnoses, deterministic guardrail evaluations, and gateway execution results.
+          </p>
+        </div>
+
+        <Button
+          variant="outline"
+          onClick={loadAuditData}
+          className="gap-2 border-border text-foreground hover:bg-muted text-xs self-start sm:self-auto"
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+          Refresh Log
+        </Button>
       </div>
 
-      {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card className="glass-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Events</CardTitle>
-            <ScrollText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">1,247</div>
-            <p className="text-xs text-muted-foreground mt-1">Last 30 days</p>
-          </CardContent>
-        </Card>
+      {/* Search and Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex-1 relative">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search by payment identifier, action type, or details..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 bg-background border border-border rounded-xl text-xs sm:text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 transition-colors"
+          />
+        </div>
 
-        <Card className="glass-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">AI Decisions</CardTitle>
-            <TrendingUp className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">892</div>
-            <p className="text-xs text-muted-foreground mt-1">Automated decisions</p>
-          </CardContent>
-        </Card>
-
-        <Card className="glass-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Manual Reviews</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">45</div>
-            <p className="text-xs text-muted-foreground mt-1">Approved actions</p>
-          </CardContent>
-        </Card>
-
-        <Card className="glass-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Policy Blocks</CardTitle>
-            <Shield className="h-4 w-4 text-orange-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">12</div>
-            <p className="text-xs text-muted-foreground mt-1">Actions prevented</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Audit Trail */}
-      <Card className="glass-card">
-        <CardHeader>
-          <CardTitle>Activity Timeline</CardTitle>
-          <CardDescription>
-            Chronological record of all recovery detection, decisions, and outcomes
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Timestamp</TableHead>
-                <TableHead>Event</TableHead>
-                <TableHead>Actor</TableHead>
-                <TableHead>Target</TableHead>
-                <TableHead>Details</TableHead>
-                <TableHead>Outcome</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {auditEvents.map((event) => {
-                const Icon = getEventIcon(event.event)
-                return (
-                  <TableRow key={event.id} className="hover:bg-muted/30">
-                    <TableCell className="font-mono text-xs text-muted-foreground">
-                      {event.timestamp}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Icon className="h-4 w-4 text-primary flex-shrink-0" />
-                        <span className="font-medium">{event.event}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {event.actor === 'System' || event.actor === 'Revive AI' ? (
-                        <Badge variant="outline" className="text-xs">
-                          {event.actor}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground">{event.actor}</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {event.target}
-                    </TableCell>
-                    <TableCell className="text-sm">{event.details}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={getOutcomeColor(event.outcome)}>
-                        {event.outcome.replace('_', ' ')}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-
-          {/* Load More */}
-          <div className="mt-4 text-center">
-            <button className="text-sm text-primary hover:underline">
-              Load more events
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 text-xs">
+          {[
+            { key: 'all', label: 'All Events' },
+            { key: 'ML_', label: 'ML Predictions' },
+            { key: 'AI_', label: 'AI Diagnoses' },
+            { key: 'POLICY_', label: 'Policy Checks' },
+            { key: 'RECOVERY_', label: 'Executions' },
+            { key: 'BATCH_', label: 'Batch Runs' },
+          ].map((f) => (
+            <button
+              key={f.key}
+              onClick={() => setActionFilter(f.key)}
+              className={`px-3 py-2 rounded-xl font-semibold whitespace-nowrap transition-colors border ${
+                actionFilter === f.key
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-muted/40 border-border text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              {f.label}
             </button>
-          </div>
-        </CardContent>
-      </Card>
+          ))}
+        </div>
+      </div>
 
-      {/* Audit Explanation */}
-      <Card className="glass-card border-primary/20 emerald-glow">
-        <CardHeader>
-          <div className="flex items-start gap-3">
-            <div className="rounded-full bg-primary/10 p-2">
-              <ScrollText className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <CardTitle className="text-primary">Complete Audit Trail</CardTitle>
-              <CardDescription className="mt-1.5">
-                Every recovery detection, AI decision, policy evaluation, manual review, and action outcome is permanently recorded. This audit trail ensures transparency, compliance, and accountability for all automated and manual recovery interventions.
-              </CardDescription>
-            </div>
+      {/* Audit Events Table */}
+      <div className="rounded-2xl glass-card border border-border overflow-hidden bg-card">
+        {filteredEntries.length === 0 ? (
+          <div className="p-12 text-center text-xs text-muted-foreground">
+            <ScrollText className="w-10 h-10 mx-auto text-muted-foreground mb-2 opacity-60" />
+            <p className="font-bold text-foreground text-sm">No Audit Events Found</p>
+            <p className="mt-1">
+              {searchQuery || actionFilter !== 'all'
+                ? 'Try adjusting your search query or filter.'
+                : 'No pipeline events have been recorded in this workspace yet.'}
+            </p>
           </div>
-        </CardHeader>
-      </Card>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs text-left">
+              <thead className="bg-muted/30 text-muted-foreground border-b border-border">
+                <tr>
+                  <th className="px-6 py-3 font-semibold">Timestamp</th>
+                  <th className="px-6 py-3 font-semibold">Action Type</th>
+                  <th className="px-6 py-3 font-semibold">Payment Identifier</th>
+                  <th className="px-6 py-3 font-semibold">Outcome</th>
+                  <th className="px-6 py-3 font-semibold">Details</th>
+                  <th className="px-4 py-3 font-semibold text-right">Inspect</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredEntries.map((entry) => {
+                  const isExpanded = expandedRow === entry.id
+                  const isSuccess = entry.outcome === 'SUCCESS' || entry.outcome === 'RECOVERED' || entry.outcome === 'ALLOWED'
+                  const isBlocked = entry.outcome === 'BLOCKED' || entry.actionType.includes('BLOCKED')
 
-      {/* Implementation Note */}
-      <Card className="border-dashed glass">
-        <CardContent className="pt-6">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-sm font-medium mb-1">Demo Audit Data</p>
-              <p className="text-xs text-muted-foreground">
-                The audit events shown above are demonstration data. Real audit trail data will be recorded by the backend AuditTrail service once Phase 2 recovery-agent APIs are implemented.
-              </p>
-            </div>
+                  return (
+                    <div key={entry.id} className="contents">
+                      <tr
+                        className="hover:bg-muted/30 transition-colors cursor-pointer"
+                        onClick={() => setExpandedRow(isExpanded ? null : entry.id)}
+                      >
+                        <td className="px-6 py-3.5 text-muted-foreground whitespace-nowrap font-medium">
+                          {new Date(entry.timestamp).toLocaleString()}
+                        </td>
+                        <td className="px-6 py-3.5">
+                          <span className="font-semibold text-foreground flex items-center gap-1.5">
+                            <EventIcon type={entry.actionType} />
+                            {formatActionType(entry.actionType)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-3.5 font-mono text-foreground font-semibold">
+                          {entry.paymentIdentifier || 'Workspace System'}
+                        </td>
+                        <td className="px-6 py-3.5">
+                          {entry.outcome ? (
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              isSuccess
+                                ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                                : isBlocked
+                                ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
+                                : 'bg-blue-500/15 text-blue-700 dark:text-blue-400'
+                            }`}>
+                              {entry.outcome}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-3.5 max-w-sm truncate text-muted-foreground font-medium">
+                          {entry.details}
+                        </td>
+                        <td className="px-4 py-3.5 text-right text-muted-foreground">
+                          {isExpanded ? <ChevronUp className="w-4 h-4 inline" /> : <ChevronDown className="w-4 h-4 inline" />}
+                        </td>
+                      </tr>
+
+                      {/* Expanded Details Row */}
+                      {isExpanded && (
+                        <tr className="bg-muted/10">
+                          <td colSpan={6} className="px-6 py-4 border-b border-border">
+                            <div className="rounded-xl bg-muted/30 border border-border p-4 space-y-2 text-xs">
+                              <div className="flex justify-between text-muted-foreground text-[11px]">
+                                <span>Entity: <strong className="text-foreground">{entry.entityType || 'Event'} #{entry.entityId || entry.id}</strong></span>
+                                <span>Timestamp: <strong className="text-foreground">{entry.timestamp}</strong></span>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground font-medium block mb-1">Payload / Details:</span>
+                                <pre className="p-3 rounded-lg bg-slate-950 text-emerald-400 font-mono text-[11px] overflow-x-auto whitespace-pre-wrap leading-relaxed border border-border/40">
+                                  {formatDetails(entry.details)}
+                                </pre>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </div>
+                  )
+                })}
+              </tbody>
+            </table>
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </div>
     </div>
   )
+}
+
+function EventIcon({ type }: { type: string }) {
+  if (type.includes('ML_')) return <Brain className="w-3.5 h-3.5 text-primary" />
+  if (type.includes('AI_')) return <Sparkles className="w-3.5 h-3.5 text-blue-400" />
+  if (type.includes('POLICY_')) return <Shield className="w-3.5 h-3.5 text-amber-400" />
+  if (type.includes('BATCH_')) return <Layers className="w-3.5 h-3.5 text-purple-400" />
+  if (type.includes('SUCCESS') || type.includes('RECOVERED')) return <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+  return <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+}
+
+function formatActionType(type: string): string {
+  return type.replace(/_/g, ' ')
+}
+
+function formatDetails(raw: string): string {
+  try {
+    const parsed = JSON.parse(raw)
+    return JSON.stringify(parsed, null, 2)
+  } catch {
+    return raw
+  }
 }

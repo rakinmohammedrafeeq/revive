@@ -309,25 +309,35 @@ public class RecoveryController {
             Workspace workspace = resolveWorkspace();
             if (workspace == null) {
                 logger.error("No workspace found for current user");
-                throw new RuntimeException("No workspace available. Please create a workspace first.");
+                return ResponseEntity.badRequest().body(Map.of(
+                    "error", "No workspace available",
+                    "message", "Please create a workspace first"
+                ));
             }
             
+            // Eagerly fetch workspace ID and name to avoid LazyInitializationException
+            Long workspaceId = workspace.getId();
+            String workspaceName = workspace.getName();  // Force load within transaction
+
             int count = (request != null && request.containsKey("count")) ? request.get("count") : 60;
             count = Math.min(count, 200);
 
             logger.info("Generating {} demo payment records for workspace {} ({})", 
-                    count, workspace.getId(), workspace.getName());
+                    count, workspaceId, workspaceName);
             
-            int generated = syntheticDataGenerator.generateSyntheticDataset(workspace.getId(), count);
+            int generated = syntheticDataGenerator.generateSyntheticDataset(workspaceId, count);
 
             Map<String, Object> response = new HashMap<>();
             response.put("generated", generated);
             response.put("message", "Generated " + generated + " synthetic recovery cases with seed 42");
-            response.put("workspace", workspace.getName());
+            response.put("workspace", workspaceName);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             logger.error("Failed to generate demo data", e);
-            throw new RuntimeException("Failed to generate demo data: " + e.getMessage(), e);
+            return ResponseEntity.status(500).body(Map.of(
+                "error", "Generation failed",
+                "message", e.getMessage()
+            ));
         }
     }
 

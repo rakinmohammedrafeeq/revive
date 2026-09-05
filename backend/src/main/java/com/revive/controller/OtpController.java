@@ -29,6 +29,18 @@ public class OtpController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/send-registration-otp")
+    public ResponseEntity<MessageResponse> sendRegistrationOtp(@Valid @RequestBody RequestOtpRequest request) {
+        MessageResponse response = otpService.sendRegistrationOtp(request.getEmail());
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/verify-registration-otp")
+    public ResponseEntity<com.revive.dto.VerifyRegistrationOtpResponse> verifyRegistrationOtp(@Valid @RequestBody VerifyOtpRequest request) {
+        com.revive.dto.VerifyRegistrationOtpResponse response = otpService.verifyRegistrationOtp(request.getEmail(), request.getOtp());
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping("/reset-password")
     public ResponseEntity<MessageResponse> resetPassword(@Valid @RequestBody ResetPasswordWithOtpRequest request) {
         MessageResponse response = otpService.resetPasswordWithOtp(request);

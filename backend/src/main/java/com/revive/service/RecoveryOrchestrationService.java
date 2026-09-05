@@ -50,6 +50,7 @@ public class RecoveryOrchestrationService {
     private final RecoveryPredictionModel predictionModel;
     private final RecoveryActionExecutor actionExecutor;
     private final AuditTrailService auditTrailService;
+    private final MlPredictionTrackingService mlPredictionTrackingService;
     private final ObjectMapper objectMapper;
 
     public RecoveryOrchestrationService(
@@ -61,6 +62,7 @@ public class RecoveryOrchestrationService {
             RecoveryPredictionModel predictionModel,
             RecoveryActionExecutor actionExecutor,
             AuditTrailService auditTrailService,
+            MlPredictionTrackingService mlPredictionTrackingService,
             ObjectMapper objectMapper) {
         this.failedPaymentRepository = failedPaymentRepository;
         this.recoveryActionRepository = recoveryActionRepository;
@@ -70,6 +72,7 @@ public class RecoveryOrchestrationService {
         this.predictionModel = predictionModel;
         this.actionExecutor = actionExecutor;
         this.auditTrailService = auditTrailService;
+        this.mlPredictionTrackingService = mlPredictionTrackingService;
         this.objectMapper = objectMapper;
     }
 
@@ -119,6 +122,14 @@ public class RecoveryOrchestrationService {
             // ── STEP 2: ML Recovery Probability ────────────────────────────
             logger.info("Step 2: ML prediction for {}", payment.getPaymentIdentifier());
             double recoveryProbability = predictionModel.predictRecoveryProbability(payment);
+
+            // Track ML prediction for feedback loop
+            mlPredictionTrackingService.trackPrediction(
+                payment,
+                recoveryProbability,
+                com.revive.enums.PredictionMethod.ML_MODEL,
+                payment.getWorkspace()
+            );
 
             audit(payment, AuditActionType.ML_PREDICTION, "RecoveryPipeline", payment.getId(),
                     Map.of(

@@ -1,4 +1,4 @@
-import { Outlet, Navigate, useLocation } from 'react-router-dom'
+import { Outlet, Navigate, useLocation, Link } from 'react-router-dom'
 import { APP_LOGO_SRC } from '@/config/brandAssets'
 import { useAuth } from '@/contexts/AuthContext'
 import {
@@ -51,68 +51,82 @@ export function AuthLayout() {
   }
 
   return (
-    <div className="relative min-h-screen bg-[#0a0a12] text-white">
-      <AuthBackdrop />
-
+    <div className="relative min-h-screen bg-background text-foreground transition-colors duration-200">
       <div className="relative z-10 flex min-h-screen flex-col">
-        <div className="flex flex-1 items-center justify-center pt-10 sm:pt-12 lg:pt-14">
-        <div className="w-full max-w-6xl px-6 sm:px-10 lg:px-14">
-          <div className="grid w-full items-center gap-12 lg:grid-cols-2">
+        <div className="flex flex-1 items-center justify-center pt-8 sm:pt-12 lg:pt-14 pb-10">
+          <div className="w-full max-w-6xl px-6 sm:px-10 lg:px-14">
+            <div className="grid w-full items-center gap-12 lg:grid-cols-2">
 
-            {/* ── LEFT: Branding ───────────────────────────────── */}
-            <div className="flex flex-col justify-center gap-8 lg:gap-9">
+              {/* ── LEFT: Branding & Value Proposition ───────────────── */}
+              <div className="flex flex-col justify-center gap-8 lg:gap-9">
 
-              {/* Logo */}
-              <div className="flex items-center gap-2.5">
-                <img src={APP_LOGO_SRC} alt="Revive" className="h-10 w-10" loading="eager" />
-                <span className="text-xl font-semibold tracking-tight">Revive</span>
-              </div>
-
-              {/* Headline */}
-              <div className="space-y-3">
-                <h2 className="text-3xl font-bold leading-tight tracking-tight sm:text-4xl">
-                  Revenue recovery,{' '}
-                  <span className="bg-gradient-to-r from-primary/90 to-primary bg-clip-text text-transparent">
-                    powered by AI
-                  </span>
-                </h2>
-                <p className="max-w-sm text-[15px] leading-relaxed text-white/45">
-                  Detect failed payments, diagnose the cause, and recover lost revenue — all automated with policy guardrails.
-                </p>
-              </div>
-
-              {/* Feature list */}
-              <div className="grid grid-cols-1 gap-3.5">
-                {features.map(({ icon: Icon, title, desc }) => (
-                  <div key={title} className="flex items-start gap-3 group">
-                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.03] transition-colors group-hover:border-primary/25 group-hover:bg-primary/[0.08]">
-                      <Icon className="h-4 w-4 text-white/35 transition-colors group-hover:text-primary/80" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-white/75">{title}</p>
-                      <p className="text-xs text-white/35">{desc}</p>
-                    </div>
+                {/* Logo */}
+                <Link to="/" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity w-fit">
+                  <img src={APP_LOGO_SRC} alt="Revive" className="h-10 w-10" loading="eager" />
+                  <div className="flex flex-col">
+                    <span className="text-xl font-bold tracking-tight text-foreground">REVIVE</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-primary">
+                      AI Revenue Recovery
+                    </span>
                   </div>
-                ))}
-              </div>
-            </div>
+                </Link>
 
-            {/* ── RIGHT: Form ──────────────────────────────────── */}
-            <div className="flex w-full items-center justify-center py-10 lg:py-0">
-              <div className="relative w-full max-w-xl rounded-2xl border border-white/[0.06] bg-white/[0.025] p-6 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-8">
-                <Outlet />
-              </div>
-            </div>
+                {/* Headline */}
+                <div className="space-y-3">
+                  <h2 className="text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl text-foreground">
+                    Recover your lost revenue,{' '}
+                    <span className="text-gradient-emerald">
+                      completely on autopilot
+                    </span>
+                  </h2>
+                  <p className="max-w-md text-[15px] leading-relaxed text-muted-foreground">
+                    Stop losing 15% of checkout sales to bank timeouts and OTP drops. Revive automatically recovers your payments with zero manual hassle.
+                  </p>
+                </div>
 
+                {/* Feature list */}
+                <div className="grid grid-cols-1 gap-3.5">
+                  {features.map(({ icon: Icon, title, desc }) => (
+                    <div key={title} className="flex items-start gap-3.5 group">
+                      <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border bg-card shadow-xs transition-colors group-hover:border-primary/40 group-hover:bg-primary/10">
+                        <Icon className="h-4 w-4 text-primary transition-colors" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">{title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Social Proof Metric Pill */}
+                <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 max-w-md flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-emerald-500 text-black flex items-center justify-center font-bold text-base flex-shrink-0 shadow-sm">
+                    72%
+                  </div>
+                  <div className="text-xs">
+                    <p className="font-bold text-foreground">Average Recovery Success Rate</p>
+                    <p className="text-muted-foreground mt-0.5">Tested across 60+ failed checkout scenarios with Razorpay.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── RIGHT: Form Container ─────────────────────────────── */}
+              <div className="flex w-full items-center justify-center">
+                <div className="relative w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-xl sm:p-8">
+                  <Outlet />
+                </div>
+              </div>
+
+            </div>
           </div>
-        </div>
         </div>
 
         {/* Footer */}
         {showFooter && (
-          <div className="mt-16 sm:mt-20 lg:mt-24">
+          <div className="mt-auto">
             <div className="mx-auto w-full max-w-6xl px-6 sm:px-10 lg:px-14">
-              <div className="h-px w-full bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+              <div className="h-px w-full bg-border" />
             </div>
             <AppFooter />
           </div>

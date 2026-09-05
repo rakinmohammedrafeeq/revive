@@ -17,9 +17,17 @@ export const apiClient = axios.create({
   timeout: 180000, // 180 seconds (3 minutes) for Render cold starts
 })
 
-// Request interceptor: Add auth token to requests
+// Request interceptor: Add auth token to requests and normalize redundant /api prefixes
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
+    // Normalize URL if baseURL already contains /api
+    if (config.url && config.url.startsWith('/api/')) {
+      const base = config.baseURL || API_BASE_URL || ''
+      if (base.endsWith('/api') || base.endsWith('/api/')) {
+        config.url = config.url.replace(/^\/api/, '')
+      }
+    }
+
     const token = getStoredToken()
     if (token) {
       config.headers.Authorization = `Bearer ${token}`

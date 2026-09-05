@@ -4,11 +4,15 @@ import com.revive.dto.MessageResponse;
 import com.revive.dto.RequestOtpRequest;
 import com.revive.dto.ResetPasswordWithOtpRequest;
 import com.revive.dto.VerifyOtpRequest;
+import com.revive.dto.VerifyRegistrationOtpResponse;
 import com.revive.entity.User;
 import com.revive.exception.BadRequestException;
 import com.revive.repository.UserRepository;
 import com.revive.config.RateLimitConfig;
 import io.github.bucket4j.Bucket;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -17,6 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Service
@@ -27,6 +33,19 @@ public class OtpService {
     private static final int MAX_OTP_ATTEMPTS = 5;
     private static final int RESEND_COOLDOWN_SECONDS = 30; // Reduced from 60 to 30 seconds
     
+    @Getter
+    @Setter
+    @AllArgsConstructor
+    public static class RegistrationOtpData {
+        private final String code;
+        private final LocalDateTime expiry;
+        private int attempts;
+        private boolean verified;
+        private String verificationToken;
+        private final LocalDateTime lastSent;
+    }
+
+    private final Map<String, RegistrationOtpData> registrationOtpStore = new ConcurrentHashMap<>();
     private final UserRepository userRepository;
     private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
@@ -45,6 +64,102 @@ public class OtpService {
         this.passwordResetBuckets = passwordResetBuckets;
         this.rateLimitConfig = rateLimitConfig;
         this.secureRandom = new SecureRandom();
+    }
+
+    public MessageResponse sendRegistrationOtp(String email) {
+        if (email == null || email.trim().isEmpty() || !email.contains("@")) {
+            throw new BadRequestException("Please provide a valid email address.");
+        }
+        String normalizedEmail = email.toLowerCase().trim();
+
+        log.info("=== SEND REGISTRATION OTP START ===");
+        log.info("Email: {}", normalizedEmail);
+
+        if (userRepository.existsByEmail(normalizedEmail)) {
+            throw new BadRequestException("An account with this email already exists. Please sign in.");
+        }
+
+        RegistrationOtpData existing = registrationOtpStore.get(normalizedEmail);
+        if (existing != null && existing.getLastSent() != null) {
+            LocalDateTime cooldownEnd = existing.getLastSent().plusSeconds(RESEND_COOLDOWN_SECONDS);
+            if (LocalDateTime.now().isBefore(cooldownEnd)) {
+                long secondsRemaining = java.time.Duration.between(LocalDateTime.now(), cooldownEnd).getSeconds();
+                throw new BadRequestException("Please wait " + secondsRemaining + " seconds before requesting a new code.");
+            }
+        }
+
+        String otp = generateOtp();
+        registrationOtpStore.put(normalizedEmail, new RegistrationOtpData(
+                otp,
+                LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES),
+                0,
+                false,
+                null,
+                LocalDateTime.now()
+        ));
+
+        emailService.sendRegistrationOtpEmail(normalizedEmail, otp);
+        log.info("=== SEND REGISTRATION OTP SUCCESS ===");
+
+        return MessageResponse.builder()
+                .message("Verification code sent to " + normalizedEmail)
+                .build();
+    }
+
+    public VerifyRegistrationOtpResponse verifyRegistrationOtp(String email, String otp) {
+        if (email == null || otp == null) {
+            throw new BadRequestException("Email and verification code are required.");
+        }
+        String normalizedEmail = email.toLowerCase().trim();
+        String normalizedOtp = otp.trim();
+
+        log.info("=== VERIFY REGISTRATION OTP START ===");
+        log.info("Email: {}", normalizedEmail);
+
+        RegistrationOtpData data = registrationOtpStore.get(normalizedEmail);
+        if (data == null || data.getExpiry().isBefore(LocalDateTime.now())) {
+            throw new BadRequestException("Verification code expired or not requested. Please request a new code.");
+        }
+
+        if (data.getAttempts() >= MAX_OTP_ATTEMPTS) {
+            registrationOtpStore.remove(normalizedEmail);
+            throw new BadRequestException("Too many failed attempts. Please request a new verification code.");
+        }
+
+        if (!normalizedOtp.equals(data.getCode())) {
+            data.setAttempts(data.getAttempts() + 1);
+            int attemptsLeft = MAX_OTP_ATTEMPTS - data.getAttempts();
+            throw new BadRequestException("Invalid verification code. " + attemptsLeft + " attempts remaining.");
+        }
+
+        String verificationToken = UUID.randomUUID().toString();
+        data.setVerified(true);
+        data.setVerificationToken(verificationToken);
+
+        log.info("=== VERIFY REGISTRATION OTP SUCCESS ===");
+        return VerifyRegistrationOtpResponse.builder()
+                .verified(true)
+                .message("Email verified successfully")
+                .verificationToken(verificationToken)
+                .build();
+    }
+
+    public boolean isRegistrationEmailVerified(String email, String verificationToken) {
+        if (email == null) return false;
+        String normalizedEmail = email.toLowerCase().trim();
+        RegistrationOtpData data = registrationOtpStore.get(normalizedEmail);
+        if (data != null && data.isVerified() && data.getExpiry().isAfter(LocalDateTime.now())) {
+            if (verificationToken == null || verificationToken.isBlank() || verificationToken.equals(data.getVerificationToken())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public void consumeRegistrationVerification(String email) {
+        if (email != null) {
+            registrationOtpStore.remove(email.toLowerCase().trim());
+        }
     }
 
     @Transactional

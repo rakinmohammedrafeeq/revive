@@ -39,6 +39,7 @@ public class AuthService {
     private final EmailService emailService;
     private final Map<String, Bucket> passwordResetBuckets;
     private final RateLimitConfig rateLimitConfig;
+    private final OtpService otpService;
 
     public AuthService(UserRepository userRepository,
                        WorkspaceRepository workspaceRepository,
@@ -48,7 +49,8 @@ public class AuthService {
                        JwtTokenProvider jwtTokenProvider,
                        EmailService emailService,
                        Map<String, Bucket> passwordResetBuckets,
-                       RateLimitConfig rateLimitConfig) {
+                       RateLimitConfig rateLimitConfig,
+                       OtpService otpService) {
         this.userRepository = userRepository;
         this.workspaceRepository = workspaceRepository;
         this.workspaceMemberRepository = workspaceMemberRepository;
@@ -58,6 +60,7 @@ public class AuthService {
         this.emailService = emailService;
         this.passwordResetBuckets = passwordResetBuckets;
         this.rateLimitConfig = rateLimitConfig;
+        this.otpService = otpService;
     }
 
     public AuthResponse login(LoginRequest request) {
@@ -103,6 +106,11 @@ public class AuthService {
             throw new BadRequestException("Email is already registered");
         }
 
+        // enforce email verification before account creation
+        if (!otpService.isRegistrationEmailVerified(request.getEmail(), request.getVerificationToken())) {
+            throw new BadRequestException("Please verify your email address before creating an account.");
+        }
+
         // Automatically assign ANALYST role (full access to their own workspace)
         Role role = Role.ANALYST;
 
@@ -143,6 +151,9 @@ public class AuthService {
         // Set as current workspace
         user.setCurrentWorkspace(workspace);
         userRepository.save(user);
+
+        // Consume registration verification token
+        otpService.consumeRegistrationVerification(request.getEmail());
 
         String token = jwtTokenProvider.generateTokenWithWorkspace(
                 user.getEmail(), 

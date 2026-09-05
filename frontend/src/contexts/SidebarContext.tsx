@@ -9,8 +9,8 @@ interface SidebarContextType {
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined)
 
 export function SidebarProvider({ children }: { children: ReactNode }) {
-  // Always start with sidebar expanded (not collapsed)
-  const [isCollapsed, setIsCollapsed] = useState(false)
+  // Always start with sidebar collapsed
+  const [isCollapsed, setIsCollapsed] = useState(true)
 
   const toggleSidebar = () => setIsCollapsed((prev) => !prev)
 

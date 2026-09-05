@@ -15,13 +15,12 @@ import { ResetPasswordPage } from '@/pages/auth/ResetPasswordPage'
 import { OAuth2CallbackPage } from '@/pages/auth/OAuth2CallbackPage'
 import { TermsAndPrivacyPage } from '@/pages/auth/TermsAndPrivacyPage'
 import { RevenueDashboard } from '@/pages/dashboard/RevenueDashboard'
-import { RecordsPage } from '@/pages/records/RecordsPage'
 import { RecoveryWorkspace } from '@/pages/recovery/RecoveryWorkspace'
 import { RecoveryCaseDetail } from '@/pages/recovery/RecoveryCaseDetail'
-import { RevenueInsights } from '@/pages/insights/RevenueInsights'
+import { MlPerformancePage } from '@/pages/ml/MlPerformancePage'
+import { BatchEvaluationPage } from '@/pages/recovery/BatchEvaluationPage'
 import { PoliciesControl } from '@/pages/policies/PoliciesControl'
 import { AuditPage } from '@/pages/audit/AuditPage'
-import { WorkspaceMembersPage } from '@/pages/workspace/WorkspaceMembersPage'
 import { AdminUsersPage } from '@/pages/admin/AdminUsersPage'
 
 function RoleRedirect() {
@@ -68,18 +67,11 @@ function AppRoutes() {
         <Route path="dashboard" element={<RevenueDashboard />} />
         <Route path="recovery" element={<RecoveryWorkspace />} />
         <Route path="recovery/:caseId" element={<RecoveryCaseDetail />} />
-        <Route path="records" element={<RecordsPage />} />
-        <Route path="insights" element={<RevenueInsights />} />
+        <Route path="ml-performance" element={<MlPerformancePage />} />
+        <Route path="batch-evaluation" element={<BatchEvaluationPage />} />
         <Route path="policies" element={<PoliciesControl />} />
         <Route path="audit" element={<AuditPage />} />
-        <Route
-          path="members"
-          element={
-            <ProtectedRoute allowedRoles={['ADMIN', 'ANALYST']}>
-              <WorkspaceMembersPage />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="members" element={<Navigate to="/app/admin/users" replace />} />
         <Route
           path="admin/users"
           element={
@@ -92,13 +84,15 @@ function AppRoutes() {
 
       <Route path="/dashboard" element={<Navigate to="/app/dashboard" replace />} />
       <Route path="/recovery" element={<Navigate to="/app/recovery" replace />} />
-      <Route path="/records" element={<Navigate to="/app/records" replace />} />
-      <Route path="/insights" element={<Navigate to="/app/insights" replace />} />
+      <Route path="/ml-performance" element={<Navigate to="/app/ml-performance" replace />} />
+      <Route path="/batch-evaluation" element={<Navigate to="/app/batch-evaluation" replace />} />
+      <Route path="/records" element={<Navigate to="/app/recovery" replace />} />
+      <Route path="/insights" element={<Navigate to="/app/ml-performance" replace />} />
       <Route path="/policies" element={<Navigate to="/app/policies" replace />} />
       <Route path="/audit" element={<Navigate to="/app/audit" replace />} />
-      <Route path="/members" element={<Navigate to="/app/members" replace />} />
-      <Route path="/team" element={<Navigate to="/app/members" replace />} />
-      <Route path="/advisor" element={<Navigate to="/app/insights" replace />} />
+      <Route path="/members" element={<Navigate to="/app/admin/users" replace />} />
+      <Route path="/team" element={<Navigate to="/app/admin/users" replace />} />
+      <Route path="/advisor" element={<Navigate to="/app/ml-performance" replace />} />
 
       <Route path="*" element={<RoleRedirect />} />
     </Routes>

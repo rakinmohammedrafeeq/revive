@@ -7,15 +7,12 @@ import { AddMembersModal } from '@/components/workspace/AddMembersModal';
 import { useNavigate } from 'react-router-dom';
 
 export const WorkspaceMembersPage: React.FC = () => {
-  const { currentWorkspace, refreshWorkspaces, deleteWorkspace, workspaces } = useWorkspace();
+  const { currentWorkspace, refreshWorkspaces } = useWorkspace();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<WorkspaceMember | null>(null);
   const [isRemovingMember, setIsRemovingMember] = useState(false);
 
@@ -63,32 +60,6 @@ export const WorkspaceMembersPage: React.FC = () => {
     // Refresh both members list and workspace list
     await loadMembers();
     await refreshWorkspaces();
-  };
-
-  const handleDeleteWorkspace = async () => {
-    if (!currentWorkspace) return;
-
-    setIsDeleting(true);
-    setDeleteError(null);
-
-    try {
-      await deleteWorkspace(currentWorkspace.id);
-      setShowDeleteConfirm(false);
-      navigate('/app/dashboard');
-    } catch (error: any) {
-      // Extract clean error message
-      let errorMessage = 'Failed to delete workspace';
-      
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      setDeleteError(errorMessage);
-    } finally {
-      setIsDeleting(false);
-    }
   };
 
   const handleRemoveMember = async (userId: number) => {
@@ -184,9 +155,9 @@ export const WorkspaceMembersPage: React.FC = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Members</h1>
+            <h1 className="text-3xl font-bold text-foreground">Team Members</h1>
             <p className="text-muted-foreground mt-1">
-              Manage workspace members and permissions
+              Manage team access and member roles
             </p>
           </div>
         </div>
@@ -194,9 +165,9 @@ export const WorkspaceMembersPage: React.FC = () => {
           <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mb-4">
             <Users className="w-8 h-8 text-muted-foreground" />
           </div>
-          <h3 className="text-lg font-semibold text-foreground mb-2">No Members Found</h3>
+          <h3 className="text-lg font-semibold text-foreground mb-2">No Additional Members Found</h3>
           <p className="text-sm text-muted-foreground text-center max-w-md mb-6">
-            This workspace doesn't have any members yet.
+            Invite colleagues to collaborate on failed payment recovery and analytics.
           </p>
           {canManageMembers && (
             <button
@@ -204,7 +175,7 @@ export const WorkspaceMembersPage: React.FC = () => {
               className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80 text-primary-foreground rounded-xl font-medium transition-all shadow-lg shadow-primary/20"
             >
               <UserPlus className="w-4 h-4" />
-              Add Members
+              Invite Member
             </button>
           )}
         </div>
@@ -225,29 +196,20 @@ export const WorkspaceMembersPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Members</h1>
+          <h1 className="text-3xl font-bold text-foreground">Team Members</h1>
           <p className="text-muted-foreground mt-1">
-            Manage workspace members and permissions
+            Manage team access and member roles
           </p>
         </div>
         <div className="flex items-center gap-3">
           {canManageMembers && (
-            <>
-              <button
-                onClick={() => setShowAddModal(true)}
-                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80 text-primary-foreground rounded-xl font-medium transition-all shadow-lg shadow-primary/20"
-              >
-                <UserPlus className="w-4 h-4" />
-                Add Members
-              </button>
-              <button
-                onClick={() => setShowDeleteConfirm(true)}
-                className="flex items-center gap-2 px-4 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/20 rounded-xl font-medium transition-all"
-              >
-                <Trash2 className="w-4 h-4" />
-                Delete Workspace
-              </button>
-            </>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-primary to-primary/90 hover:from-primary/90 hover:to-primary/80 text-primary-foreground rounded-xl font-medium transition-all shadow-lg shadow-primary/20"
+            >
+              <UserPlus className="w-4 h-4" />
+              Invite Member
+            </button>
           )}
         </div>
       </div>
@@ -311,7 +273,7 @@ export const WorkspaceMembersPage: React.FC = () => {
                       {member.permission === 'OWNER' ? (
                         <div className="flex items-center gap-2">
                           {getPermissionBadge(member.permission)}
-                          <span className="text-xs text-muted-foreground">Workspace owner</span>
+                          <span className="text-xs text-muted-foreground">Team Owner</span>
                         </div>
                       ) : canManageMembers && !isCurrent ? (
                         <select
@@ -340,7 +302,7 @@ export const WorkspaceMembersPage: React.FC = () => {
                         {isCurrent ? (
                           <span className="text-sm text-muted-foreground">Cannot modify self</span>
                         ) : member.permission === 'OWNER' ? (
-                          <span className="text-sm text-muted-foreground">Workspace owner</span>
+                          <span className="text-sm text-muted-foreground">Team Owner</span>
                         ) : (
                           <button
                             onClick={() => setMemberToRemove(member)}
@@ -370,62 +332,6 @@ export const WorkspaceMembersPage: React.FC = () => {
         />
       )}
 
-      {/* Delete Workspace Confirmation */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md">
-            <div className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center">
-                  <Trash2 className="w-6 h-6 text-red-600 dark:text-red-400" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground">Delete Workspace</h3>
-                  <p className="text-sm text-muted-foreground">This action cannot be undone</p>
-                </div>
-              </div>
-              <p className="text-sm text-muted-foreground mb-6">
-                Are you sure you want to delete <span className="font-medium text-foreground">"{currentWorkspace?.name}"</span>? 
-                All workspace data, members, and records will be permanently removed.
-              </p>
-              
-              {deleteError && (
-                <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-                  <p className="text-sm text-red-600 dark:text-red-400">{deleteError}</p>
-                </div>
-              )}
-              
-              <div className="flex gap-3">
-                <button
-                  onClick={() => {
-                    setShowDeleteConfirm(false);
-                    setDeleteError(null);
-                  }}
-                  disabled={isDeleting}
-                  className="flex-1 px-4 py-2.5 bg-accent hover:bg-accent/80 text-foreground rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDeleteWorkspace}
-                  disabled={isDeleting}
-                  className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {isDeleting ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Deleting...
-                    </>
-                  ) : (
-                    'Delete Workspace'
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Remove Member Confirmation */}
       {memberToRemove && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
@@ -436,12 +342,12 @@ export const WorkspaceMembersPage: React.FC = () => {
                   <Trash2 className="w-6 h-6 text-red-600 dark:text-red-400" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-foreground">Remove Member</h3>
-                  <p className="text-sm text-muted-foreground">Remove from workspace</p>
+                  <h3 className="text-lg font-semibold text-foreground">Remove Team Member</h3>
+                  <p className="text-sm text-muted-foreground">Revoke access for this user</p>
                 </div>
               </div>
               <p className="text-sm text-muted-foreground mb-6">
-                Are you sure you want to remove <span className="font-medium text-foreground">{memberToRemove.userName}</span> from this workspace?
+                Are you sure you want to remove <span className="font-medium text-foreground">{memberToRemove.userName}</span> from this team?
               </p>
               
               <div className="flex gap-3">

@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
-import { Shield, Search, CheckCircle, XCircle, Users, Loader2 } from 'lucide-react';
+import { Shield, Search, CheckCircle, XCircle, Users, Loader2, Database, Sparkles } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { adminApi, AdminUser } from '@/api/adminApi';
+import { recoveryAdminApi } from '@/api/recoveryApi';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
@@ -13,6 +14,19 @@ export const AdminUsersPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [sort, setSort] = useState('createdAt:desc');
   const [confirmAction, setConfirmAction] = useState<{ user: AdminUser; action: 'activate' | 'deactivate' } | null>(null);
+  const [generatingDemo, setGeneratingDemo] = useState(false);
+
+  const handleGenerateDemo = async () => {
+    try {
+      setGeneratingDemo(true);
+      const res = await recoveryAdminApi.generateDemoData(60);
+      toast.success(res.message || `Generated ${res.generated} demo recovery cases!`);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to generate demo data');
+    } finally {
+      setGeneratingDemo(false);
+    }
+  };
 
   const sortBy = sort.split(':')[0] as string;
   const direction = sort.split(':')[1] as 'asc' | 'desc';
@@ -97,6 +111,41 @@ export const AdminUsersPage: React.FC = () => {
           <span className="text-sm font-medium text-primary">
             {data?.totalElements || 0} Total Users
           </span>
+        </div>
+      </div>
+
+      {/* Demo Data Generator Card */}
+      <div className="p-6 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-card to-cyan-500/10 border border-emerald-500/20 backdrop-blur-xl">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+              <h2 className="text-lg font-bold text-foreground">Revenue Recovery Demo Seed Generator</h2>
+              <span className="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30">
+                Admin Evaluation
+              </span>
+            </div>
+            <p className="text-sm text-muted-foreground max-w-2xl">
+              Seed 60 realistic failed payment scenarios (network timeouts, card declines, 3DS authentication drops, insufficient funds) to test the 6-stage AI recovery pipeline, model accuracy, and policy guardrails.
+            </p>
+          </div>
+          <button
+            onClick={handleGenerateDemo}
+            disabled={generatingDemo}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 dark:bg-emerald-500 text-white dark:text-black font-semibold hover:bg-emerald-700 dark:hover:bg-emerald-400 active:scale-95 transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap text-sm"
+          >
+            {generatingDemo ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Generating Cases...
+              </>
+            ) : (
+              <>
+                <Database className="w-4 h-4" />
+                Generate 60 Demo Cases
+              </>
+            )}
+          </button>
         </div>
       </div>
 
@@ -197,6 +246,9 @@ export const AdminUsersPage: React.FC = () => {
                 <tbody className="divide-y divide-border">
                   {users.map((user) => {
                     const isCurrentUserRow = currentUser?.email === user.email;
+                    const displayUserName = (user.email === 'rakinmohammedrafeeq@gmail.com' && (!user.name || user.name.toLowerCase() === 'admin'))
+                      ? 'Rakin Mohammed Rafeeq'
+                      : user.name;
                     return (
                       <tr 
                         key={user.id} 
@@ -208,12 +260,12 @@ export const AdminUsersPage: React.FC = () => {
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center flex-shrink-0">
                             <span className="text-sm font-semibold text-primary">
-                              {user.name.charAt(0).toUpperCase()}
+                              {displayUserName.charAt(0).toUpperCase()}
                             </span>
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <p className="font-medium text-foreground">{user.name}</p>
+                              <p className="font-medium text-foreground">{displayUserName}</p>
                               {currentUser?.email === user.email && (
                                 <span className="px-2 py-0.5 bg-primary/20 text-primary text-xs font-medium rounded">
                                   You

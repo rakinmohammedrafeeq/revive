@@ -41,6 +41,7 @@ public class RecoveryActionExecutor {
     private final RazorpayRecoveryService razorpayService;
     private final AuditTrailService auditTrailService;
     private final PaymentStateValidator stateValidator;
+    private final MlPredictionTrackingService mlPredictionTrackingService;
     private final ObjectMapper objectMapper;
 
     public RecoveryActionExecutor(
@@ -50,6 +51,7 @@ public class RecoveryActionExecutor {
             RazorpayRecoveryService razorpayService,
             AuditTrailService auditTrailService,
             PaymentStateValidator stateValidator,
+            MlPredictionTrackingService mlPredictionTrackingService,
             ObjectMapper objectMapper) {
         this.recoveryActionRepository = recoveryActionRepository;
         this.failedPaymentRepository = failedPaymentRepository;
@@ -57,6 +59,7 @@ public class RecoveryActionExecutor {
         this.razorpayService = razorpayService;
         this.auditTrailService = auditTrailService;
         this.stateValidator = stateValidator;
+        this.mlPredictionTrackingService = mlPredictionTrackingService;
         this.objectMapper = objectMapper;
     }
 
@@ -217,6 +220,9 @@ public class RecoveryActionExecutor {
             payment.setStatus(PaymentStatus.RECOVERED);
             payment.setRecoveredAt(LocalDateTime.now());
             failedPaymentRepository.save(payment);
+
+            // Record ML prediction outcome
+            mlPredictionTrackingService.recordOutcome(payment.getId(), PaymentStatus.RECOVERED);
         } else {
             logger.error("Invalid transition to RECOVERED from {} for payment {}",
                     payment.getStatus(), payment.getPaymentIdentifier());
@@ -296,6 +302,11 @@ public class RecoveryActionExecutor {
             // Validate transition to ABANDONED
             if (stateValidator.isValidTransition(payment.getStatus(), PaymentStatus.ABANDONED)) {
                 payment.setStatus(PaymentStatus.ABANDONED);
+                failedPaymentRepository.save(payment);
+
+                // Record ML prediction outcome
+                mlPredictionTrackingService.recordOutcome(payment.getId(), PaymentStatus.ABANDONED);
+
                 logAuditEvent(payment, AuditActionType.PAYMENT_ABANDONED, action,
                         "Payment abandoned after exhausting retry limit", Map.of(
                                 "retryCount", payment.getRetryCount(),
@@ -306,13 +317,15 @@ public class RecoveryActionExecutor {
             // Validate transition back to FAILED
             if (stateValidator.isValidTransition(payment.getStatus(), PaymentStatus.FAILED)) {
                 payment.setStatus(PaymentStatus.FAILED);
+                failedPaymentRepository.save(payment);
+
+                // Record ML prediction outcome
+                mlPredictionTrackingService.recordOutcome(payment.getId(), PaymentStatus.FAILED);
             } else {
                 logger.warn("Cannot transition to FAILED from {} for payment {}",
                         payment.getStatus(), payment.getPaymentIdentifier());
             }
         }
-        
-        failedPaymentRepository.save(payment);
 
         logAuditEvent(payment, AuditActionType.RECOVERY_COMPLETED, action,
                 "Recovery action failed", Map.of("errorMessage", errorMessage));

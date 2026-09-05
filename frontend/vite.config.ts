@@ -11,6 +11,8 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
+    // Deduplicate React to prevent multiple instances
+    dedupe: ['react', 'react-dom'],
   },
   server: {
     port: 5173,
@@ -24,5 +26,8 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom'],
   },
 })

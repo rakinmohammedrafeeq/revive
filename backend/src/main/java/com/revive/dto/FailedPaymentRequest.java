@@ -38,5 +38,5 @@ public class FailedPaymentRequest {
     
     private String errorCode;
     private String paymentMethod;
-    private String metadata;
+    private Object metadata;
 }
