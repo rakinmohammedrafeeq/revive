@@ -22,6 +22,14 @@ import { BatchEvaluationPage } from '@/pages/recovery/BatchEvaluationPage'
 import { PoliciesControl } from '@/pages/policies/PoliciesControl'
 import { AuditPage } from '@/pages/audit/AuditPage'
 import { AdminUsersPage } from '@/pages/admin/AdminUsersPage'
+import { PricingPage } from '@/pages/PricingPage'
+import { DocumentationPage } from '@/pages/DocumentationPage'
+import { ApiReferencePage } from '@/pages/ApiReferencePage'
+import { IntegrationsPage } from '@/pages/IntegrationsPage'
+import { UseCasesPage } from '@/pages/UseCasesPage'
+import { HelpPage } from '@/pages/HelpPage'
+import { ContactPage } from '@/pages/ContactPage'
+import { AboutPage } from '@/pages/AboutPage'
 
 function RoleRedirect() {
   const { isAuthenticated, isReady } = useAuth()
@@ -54,6 +62,17 @@ function AppRoutes() {
       
       {/* Terms and Privacy - No layout needed */}
       <Route path="/terms-and-privacy" element={<TermsAndPrivacyPage />} />
+      <Route path="/pricing" element={<PricingPage />} />
+      <Route path="/documentation" element={<DocumentationPage />} />
+      <Route path="/api-reference" element={<ApiReferencePage />} />
+      <Route path="/privacy" element={<Navigate to="/terms-and-privacy?tab=privacy" replace />} />
+      <Route path="/terms" element={<Navigate to="/terms-and-privacy?tab=terms" replace />} />
+      <Route path="/security" element={<Navigate to="/terms-and-privacy?tab=security" replace />} />
+      <Route path="/integrations" element={<IntegrationsPage />} />
+      <Route path="/use-cases" element={<UseCasesPage />} />
+      <Route path="/help" element={<HelpPage />} />
+      <Route path="/contact" element={<ContactPage />} />
+      <Route path="/about" element={<AboutPage />} />
 
       <Route
         path="/app"
