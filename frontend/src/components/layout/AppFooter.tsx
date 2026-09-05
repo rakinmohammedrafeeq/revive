@@ -3,6 +3,7 @@ import {
   APP_NAME,
   DEFAULT_GITHUB_URL,
   DEFAULT_LINKEDIN_URL,
+  DEFAULT_GITHUB_PROFILE_URL,
 } from '@/config/appInfo'
 import * as React from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -20,7 +21,7 @@ const LinkedInMark = () => (
 )
 
 const socialLinkClass =
-  'inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-white/50 transition-all duration-200 hover:bg-white/[0.06] hover:text-white/80'
+  'inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-all duration-200'
 
 export const AppFooter = () => {
   const navigate = useNavigate()
@@ -41,11 +42,11 @@ export const AppFooter = () => {
   }
 
   return (
-    <footer className="relative z-10 w-full border-t border-white/[0.06] bg-[#0c0c14] text-white">
+    <footer className="relative z-10 w-full border-t border-border bg-secondary/30 dark:bg-[#0c0c14] text-foreground dark:text-white">
       <div className="h-px w-full bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
 
       <div className="mx-auto w-full max-w-6xl px-6 py-12 sm:py-14">
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-12 md:grid-cols-2 lg:grid-cols-4">
           {/* Column 1: Brand */}
           <div className="space-y-4">
             <button
@@ -65,19 +66,23 @@ export const AppFooter = () => {
               <span className="text-sm font-semibold tracking-tight">{APP_NAME}</span>
             </button>
 
-            <p className="text-[13px] leading-relaxed text-white/40">
+            <p className="text-[13px] leading-relaxed text-muted-foreground">
               AI-powered revenue recovery for businesses.<br />
               Smart, automated, and compliant.
             </p>
 
-            <p className="text-xs text-white/25">
+            <p className="text-xs text-muted-foreground/60">
               © {new Date().getFullYear()} {APP_NAME}
+            </p>
+            
+            <p className="text-xs text-muted-foreground/50">
+              Developed by <a href={DEFAULT_LINKEDIN_URL} target="_blank" rel="noreferrer" className="text-muted-foreground/70 hover:text-muted-foreground transition-colors duration-200">Rakin Mohammed Rafeeq</a>
             </p>
           </div>
 
           {/* Column 2: Product */}
-          <div className="space-y-3">
-            <p className="text-xs font-medium uppercase tracking-wider text-white/30">Product</p>
+          <div className="space-y-3 lg:ml-8">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground/60">Product</p>
             <ul className="space-y-1">
               <li>
                 <a href="/login" className={socialLinkClass}>
@@ -92,19 +97,51 @@ export const AppFooter = () => {
             </ul>
           </div>
 
-          {/* Column 3: Connect */}
-          <div className="space-y-3 md:justify-self-end">
-            <p className="text-xs font-medium uppercase tracking-wider text-white/30">Connect</p>
-            <div className="flex flex-col gap-1">
-              <a href={DEFAULT_GITHUB_URL} target="_blank" rel="noreferrer" className={socialLinkClass}>
-                <GitHubMark />
-                <span>GitHub</span>
-              </a>
-              <a href={DEFAULT_LINKEDIN_URL} target="_blank" rel="noreferrer" className={socialLinkClass}>
-                <LinkedInMark />
-                <span>LinkedIn</span>
-              </a>
-            </div>
+          {/* Column 3: Legal */}
+          <div className="space-y-3 lg:ml-8">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground/60">Legal</p>
+            <ul className="space-y-1">
+              <li>
+                <a href="/terms-and-privacy?tab=terms" target="_blank" rel="noopener noreferrer" className={socialLinkClass}>
+                  Terms & Conditions
+                </a>
+              </li>
+              <li>
+                <a href="/terms-and-privacy?tab=privacy" target="_blank" rel="noopener noreferrer" className={socialLinkClass}>
+                  Privacy Policy
+                </a>
+              </li>
+              <li>
+                <a href="/terms-and-privacy?tab=security" target="_blank" rel="noopener noreferrer" className={socialLinkClass}>
+                  Security & Compliance
+                </a>
+              </li>
+            </ul>
+          </div>
+
+          {/* Column 4: Connect */}
+          <div className="space-y-3 lg:ml-8">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground/60">Connect</p>
+            <ul className="space-y-1">
+              <li>
+                <a href={DEFAULT_GITHUB_URL} target="_blank" rel="noreferrer" className={socialLinkClass}>
+                  <GitHubMark />
+                  <span>GitHub Repo</span>
+                </a>
+              </li>
+              <li>
+                <a href={DEFAULT_GITHUB_PROFILE_URL} target="_blank" rel="noreferrer" className={socialLinkClass}>
+                  <GitHubMark />
+                  <span>GitHub Profile</span>
+                </a>
+              </li>
+              <li>
+                <a href={DEFAULT_LINKEDIN_URL} target="_blank" rel="noreferrer" className={socialLinkClass}>
+                  <LinkedInMark />
+                  <span>LinkedIn</span>
+                </a>
+              </li>
+            </ul>
           </div>
         </div>
       </div>

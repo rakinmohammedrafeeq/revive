@@ -7,7 +7,9 @@ import {
   ShieldCheck,
   ScrollText,
   Sparkles,
-  Shield
+  Shield,
+  Pin,
+  PinOff
 } from 'lucide-react'
 import { APP_LOGO_SRC } from '@/config/brandAssets'
 import { cn } from '@/lib/utils'
@@ -39,7 +41,7 @@ interface AppSidebarProps {
 
 export function AppSidebar({ onClose }: AppSidebarProps) {
   const location = useLocation()
-  const { isCollapsed, setIsCollapsed } = useSidebar()
+  const { isCollapsed, isPinned, setIsCollapsed, togglePin } = useSidebar()
   const { user } = useAuth()
 
   // Strictly Admin-only
@@ -123,8 +125,8 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
           "flex h-full flex-col rounded-2xl border border-border/80 bg-card/90 backdrop-blur-2xl shadow-2xl shadow-black/40",
           "relative transition-all duration-300 overflow-hidden"
         )}
-        onMouseEnter={() => setIsCollapsed(false)}
-        onMouseLeave={() => setIsCollapsed(true)}
+        onMouseEnter={() => !isPinned && setIsCollapsed(false)}
+        onMouseLeave={() => !isPinned && setIsCollapsed(true)}
       >
         {/* Ambient emerald glow */}
         <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-primary/10 via-primary/[0.02] to-transparent" />
@@ -134,7 +136,7 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
             {/* ── Logo & Brand ────────────────────────────────── */}
             <div className={cn(
               "flex h-16 items-center gap-3 relative px-4 transition-all",
-              isCollapsed ? "justify-center px-0" : "justify-start"
+              isCollapsed ? "justify-center px-0" : "justify-between"
             )}>
               <div className={cn(
                 "flex items-center gap-3 min-w-0 overflow-hidden",
@@ -155,6 +157,36 @@ export function AppSidebar({ onClose }: AppSidebarProps) {
                   </div>
                 )}
               </div>
+              
+              {/* Pin/Lock Button */}
+              {!isCollapsed && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    togglePin()
+                  }}
+                  className={cn(
+                    "flex items-center justify-center h-6 w-6 rounded-md border transition-all duration-200",
+                    isPinned
+                      ? "bg-primary/10 border-primary/30 text-primary"
+                      : "bg-background/50 border-border/50 text-muted-foreground hover:border-border hover:text-foreground"
+                  )}
+                >
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                    <line x1="9" y1="3" x2="9" y2="21" />
+                  </svg>
+                </button>
+              )}
             </div>
 
             {/* Subtle Gradient Divider */}
