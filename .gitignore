@@ -1,61 +1,173 @@
-# ===============================
-# SECURITY & SECRETS 🔐
-# ===============================
-# Environment files (ALL locations)
+# ==============================================================================
+# REVIVE — ENTERPRISE MULTI-STACK .GITIGNORE
+# Covers: Java 21 (Maven), TypeScript/React (Vite), Python 3.10 (ML), OS & IDE
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. SECURITY & SECRETS 🔐 (CRITICAL: NEVER COMMIT)
+# ------------------------------------------------------------------------------
 .env
 .env.*
 **/.env
 **/.env.*
 !.env.example
 !**/.env.example
+!.env.template
+!**/.env.template
+.env.backup
+.env.save
+.envrc
+.envrc.*
 
-# API Keys & Secrets
-**/secrets/
-**/secret/
-*.key
+# Private Keys, Certificates & Hashes
 *.pem
+*.key
 *.p12
 *.pfx
 *.cer
 *.crt
 *.der
-id_rsa
-id_rsa.pub
 *.asc
 *.gpg
-
-# Credentials & Config
+id_rsa
+id_rsa.pub
+**/secrets/
+**/secret/
+secrets.json
+secrets.yml
+secrets.yaml
 credentials.json
 credentials.yml
 credentials.yaml
 **/credentials/
-secrets.json
-secrets.yml
-secrets.yaml
-config.local.*
-*.local.json
-*.local.yml
-*.local.yaml
 
-# Database
-*.db
-*.sqlite
-*.sqlite3
-*.sql.gz
-*.dump
-database.yml
-database.json
-
-# AWS & Cloud
+# Cloud Provider Credentials
 .aws/
-*.pem
 aws-credentials
 gcloud-credentials.json
 azure-credentials.json
 
-# ===============================
-# IDE & EDITORS
-# ===============================
+# Local Configuration Overrides
+config.local.*
+*.local.json
+*.local.yml
+*.local.yaml
+database.yml
+database.json
+
+# ------------------------------------------------------------------------------
+# 2. JAVA & SPRING BOOT (MAVEN) ☕
+# ------------------------------------------------------------------------------
+target/
+backend/target/
+**/target/
+*.class
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# Allow Maven Wrapper JAR while ignoring application JARs
+*.jar
+!backend/.mvn/wrapper/maven-wrapper.jar
+!.mvn/wrapper/maven-wrapper.jar
+
+# Crash & JVM Dumps
+**/hs_err_pid*
+**/replay_pid*
+mvnw-dist.zip
+.mvn/
+.factorypath
+.apt_generated
+.apt_generated_tests
+.flattened-pom.xml
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+
+# ------------------------------------------------------------------------------
+# 3. NODE.JS & FRONTEND (REACT / VITE / TYPESCRIPT) ⚛️
+# ------------------------------------------------------------------------------
+node_modules/
+**/node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+build/
+frontend/build/
+.vite/
+frontend/.vite/
+.cache/
+frontend/.cache/
+
+# TypeScript Build Cache
+*.tsbuildinfo
+
+# Package Manager Lockfiles
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Linter & Tooling Caches
+.eslintcache
+.stylelintcache
+.parcel-cache/
+.turbo/
+.npm/
+
+# Package Manager Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ------------------------------------------------------------------------------
+# 4. PYTHON & MACHINE LEARNING SUBSYSTEM 🐍
+# ------------------------------------------------------------------------------
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+eggs/
+.eggs/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+.venv
+.venv/
+venv/
+venv*/
+ENV/
+env/
+env*/
+ml/.venv/
+ml/venv/
+
+# Pytest, Coverage & Jupyter Checkpoints
+.pytest_cache/
+.tox/
+.coverage
+.coverage.*
+.nyc_output/
+htmlcov/
+*.lcov
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+
+# ------------------------------------------------------------------------------
+# 5. IDE, EDITORS & WORKSPACES 💻
+# ------------------------------------------------------------------------------
 .idea/
 .vscode/
 *.iml
@@ -70,103 +182,24 @@ azure-credentials.json
 .brackets.json
 *.code-workspace
 
-# ===============================
-# OS FILES
-# ===============================
+# ------------------------------------------------------------------------------
+# 6. OPERATING SYSTEM ARTIFACTS 🖥️
+# ------------------------------------------------------------------------------
+# macOS
 .DS_Store
 .DS_Store?
 ._*
 .Spotlight-V100
 .Trashes
+
+# Windows
 ehthumbs.db
 Thumbs.db
 Desktop.ini
 $RECYCLE.BIN/
 *.lnk
 
-# ===============================
-# LOGS & DEBUG
-# ===============================
-*.log
-*.out
-*.err
-logs/
-**/logs/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
-pnpm-debug.log*
-debug.log
-error.log
-combined.log
-
-# ===============================
-# ENVIRONMENT (IMPORTANT 🔐)
-# ===============================
-.env
-.env.*
-!.env.example
-!.env.template
-.env.backup
-.env.save
-.envrc
-.envrc.*
-
-# ===============================
-# JAVA / SPRING BOOT
-# ===============================
-target/
-backend/target/
-**/target/
-*.class
-*.jar
-*.war
-*.nar
-*.ear
-.mvn/
-**/hs_err_pid*
-mvnw-dist.zip
-.factorypath
-.apt_generated
-.apt_generated_tests
-
-# ===============================
-# NODE / FRONTEND
-# ===============================
-node_modules/
-**/node_modules/
-frontend/node_modules/
-frontend/dist/
-frontend/.vite/
-dist/
-build/
-.next/
-.nuxt/
-.cache/
-.parcel-cache/
-.npm
-.eslintcache
-.stylelintcache
-.yarn/
-.pnp.*
-yarn.lock
-package-lock.json
-pnpm-lock.yaml
-
-# ===============================
-# BUILD / CACHE
-# ===============================
-dist/
-build/
-coverage/
-.cache/
-*.tsbuildinfo
-.turbo/
-
-# ===============================
-# TEMP FILES
-# ===============================
+# Linux / Editor Backups
 *.tmp
 *.temp
 *.swp
@@ -178,41 +211,21 @@ coverage/
 .#*
 \#*\#
 
-# ===============================
-# DOCKER
-# ===============================
-Dockerfile~
-docker-compose.override.yml
-.dockerignore~
-oradata/
-
-# ===============================
-# TESTING
-# ===============================
-coverage/
-.nyc_output/
-*.lcov
-.coverage
-htmlcov/
-.pytest_cache/
-.tox/
-
-# ===============================
-# MISC
-# ===============================
+# ------------------------------------------------------------------------------
+# 7. LOGS & DATABASE ARTIFACTS 🗄️
+# ------------------------------------------------------------------------------
+*.log
+logs/
+**/logs/
+debug.log
+error.log
+combined.log
 *.pid
-*.seed
 *.pid.lock
-.grunt
-bower_components
-.lock-wscript
-.serverless/
-.fusebox/
-.dynamodb/
-.tern-port
-.vuepress/dist
-.temp
-.rpt2_cache/
-.rts2_cache_cjs/
-.rts2_cache_es/
-.rts2_cache_umd/
+
+# Local SQLite / Dumps (Neon PostgreSQL is the primary database)
+*.db
+*.sqlite
+*.sqlite3
+*.sql.gz
+*.dump
