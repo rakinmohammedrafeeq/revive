@@ -52,6 +52,7 @@ export function RegisterPage() {
   const { login } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [pendingRegisterData, setPendingRegisterData] = useState<any | null>(null)
 
   // Email OTP verification state
   const [isSendingOtp, setIsSendingOtp] = useState(false)
@@ -171,26 +172,51 @@ export function RegisterPage() {
       return
     }
 
-    mutation.mutate(
-      {
-        name: data.name,
-        email: data.email,
-        password: data.password,
-        verificationToken,
-      },
-      {
-        onSuccess: (authResponse) => {
-          login(authResponse)
-          toast.success('Account created successfully!')
-          navigate('/app/dashboard', { replace: true })
+    const registrationPayload = {
+      name: data.name,
+      email: data.email,
+      password: data.password,
+      verificationToken,
+    }
+
+    setPendingRegisterData(registrationPayload) // Store for potential retries
+
+    const attemptRegistration = (payload: any, retryCount = 0) => {
+      mutation.mutate(
+        payload,
+        {
+          onSuccess: (authResponse) => {
+            setPendingRegisterData(null)
+            login(authResponse)
+            toast.success('Account created successfully!')
+            navigate('/app/dashboard', { replace: true })
+          },
+          onError: (err: any) => {
+            const errorMessage = err?.message || err?.response?.data?.message || ''
+            const isBackendStarting = errorMessage.includes('starting up') || 
+                                      errorMessage.includes('waking up') ||
+                                      errorMessage.includes('timeout') ||
+                                      errorMessage.includes('longer than expected')
+            
+            if (isBackendStarting && retryCount < 10) {
+              // Backend is still starting - retry after a delay
+              const retryDelay = Math.min(3000 + retryCount * 1000, 8000) // Increasing delay, max 8 seconds
+              setTimeout(() => {
+                attemptRegistration(payload, retryCount + 1)
+              }, retryDelay)
+            } else {
+              // Either not a startup issue or max retries reached
+              setPendingRegisterData(null)
+              const msg =
+                err?.response?.data?.message || 'Failed to create account. Please try again.'
+              toast.error(msg)
+            }
+          },
         },
-        onError: (err: any) => {
-          const msg =
-            err?.response?.data?.message || 'Failed to create account. Please try again.'
-          toast.error(msg)
-        },
-      },
-    )
+      )
+    }
+
+    attemptRegistration(registrationPayload)
   }
 
   return (

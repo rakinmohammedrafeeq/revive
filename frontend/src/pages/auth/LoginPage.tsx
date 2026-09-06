@@ -40,6 +40,7 @@ export function LoginPage() {
   const { login } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
   const [showSlowMessage, setShowSlowMessage] = useState(false)
+  const [pendingLoginData, setPendingLoginData] = useState<LoginFormData | null>(null)
 
   const {
     register,
@@ -59,28 +60,51 @@ export function LoginPage() {
   }
 
   const onSubmit = (data: LoginFormData) => {
+    setPendingLoginData(data) // Store the login data for potential retries
+    
     const slowTimer = setTimeout(() => {
       setShowSlowMessage(true)
     }, 5000)
 
-    mutation.mutate(data, {
-      onSuccess: (authResponse) => {
-        clearTimeout(slowTimer)
-        setShowSlowMessage(false)
-        login(authResponse)
-        toast.success(`Welcome back, ${getRoleLabel(authResponse.role)}!`)
+    const attemptLogin = (loginData: LoginFormData, retryCount = 0) => {
+      mutation.mutate(loginData, {
+        onSuccess: (authResponse) => {
+          clearTimeout(slowTimer)
+          setShowSlowMessage(false)
+          setPendingLoginData(null)
+          login(authResponse)
+          toast.success(`Welcome back, ${getRoleLabel(authResponse.role)}!`)
 
-        const fromPath = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname
-        const safeReturnPath = fromPath && fromPath.startsWith('/app/') ? fromPath : null
+          const fromPath = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname
+          const safeReturnPath = fromPath && fromPath.startsWith('/app/') ? fromPath : null
 
-        navigate(safeReturnPath ?? getDefaultRouteByRole(), { replace: true })
-      },
-      onError: () => {
-        clearTimeout(slowTimer)
-        setShowSlowMessage(false)
-        toast.error('Invalid email or password')
-      },
-    })
+          navigate(safeReturnPath ?? getDefaultRouteByRole(), { replace: true })
+        },
+        onError: (error: any) => {
+          const errorMessage = error?.message || ''
+          const isBackendStarting = errorMessage.includes('starting up') || 
+                                    errorMessage.includes('waking up') ||
+                                    errorMessage.includes('timeout') ||
+                                    errorMessage.includes('longer than expected')
+          
+          if (isBackendStarting && retryCount < 10) {
+            // Backend is still starting - retry after a delay
+            const retryDelay = Math.min(3000 + retryCount * 1000, 8000) // Increasing delay, max 8 seconds
+            setTimeout(() => {
+              attemptLogin(loginData, retryCount + 1)
+            }, retryDelay)
+          } else {
+            // Either not a startup issue or max retries reached
+            clearTimeout(slowTimer)
+            setShowSlowMessage(false)
+            setPendingLoginData(null)
+            toast.error('Invalid email or password')
+          }
+        },
+      })
+    }
+
+    attemptLogin(data)
   }
 
   return (
