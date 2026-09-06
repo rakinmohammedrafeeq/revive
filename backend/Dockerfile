@@ -37,11 +37,12 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Python ML dependencies (bypass PEP 668 for Docker container)
+# Updated versions for Python 3.14 compatibility
 RUN pip3 install --no-cache-dir --break-system-packages \
-    scikit-learn==1.3.0 \
-    pandas==2.0.3 \
-    numpy==1.24.3 \
-    joblib==1.3.2
+    scikit-learn==1.5.2 \
+    pandas==2.2.3 \
+    numpy==2.0.2 \
+    joblib==1.4.2
 
 WORKDIR /app
 
