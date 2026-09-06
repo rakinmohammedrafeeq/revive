@@ -16,7 +16,8 @@ import {
   Sparkles,
   RefreshCw,
   History,
-  ShieldCheck
+  ShieldCheck,
+  Info
 } from 'lucide-react'
 import { recoveryAdminApi, type BatchValidationResult } from '@/api/recoveryApi'
 import { formatCurrency } from '@/lib/utils'
