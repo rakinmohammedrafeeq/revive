@@ -28,31 +28,57 @@
 
 </div>
 
+---
+
+## 🚀 Try Live Demo (No Setup Required!)
+
+<div align="center">
+
+### **Production Application**
+
+**🌐 Web App**: [https://revive-ops.vercel.app](https://revive-ops.vercel.app)
+
+**🔗 Backend API**: [https://revive-backend-qfre.onrender.com](https://revive-backend-qfre.onrender.com)
+
+**❤️ Health Check**: [https://revive-backend-qfre.onrender.com/actuator/health](https://revive-backend-qfre.onrender.com/actuator/health)
+
+</div>
+
 > [!TIP]
-> **🔑 Instant Demo & Testing Credentials**  
+> **🔑 Instant Demo Credentials**  
 > Test the live platform immediately without manual setup:
 > * **Email:** `rakinmohammedrafeeq@gmail.com`
 > * **Password:** `Admin@123`
 > * **Role:** `ADMIN` (Platform Administrator)  
-> *(You can also click the **"Click to fill Demo Admin credentials"** quick-fill button directly on the `/login` screen)*
+> *(Or click the **"Click to fill Demo Admin credentials"** button on the login screen)*
+
+### Quick Demo Steps:
+1. **Visit**: [https://revive-ops.vercel.app](https://revive-ops.vercel.app)
+2. **Login**: Use demo credentials above
+3. **Navigate**: Go to "Recovery Cases" in the sidebar
+4. **Test Payment**: Click "Pay ₹1 (Razorpay Test Mode)" 
+5. **Simulate Failure**: In Razorpay modal → Netbanking → Demo Bank → Click **[Failure]** button
+6. **Watch**: ML prediction + AI diagnosis appear in real-time! 🎉
 
 ---
 
 ## 📑 Table of Contents
-1. [Executive Overview](#-executive-overview)
-2. [The Core Distinction: Revenue at Risk vs. Debited Funds](#-the-core-distinction)
-3. [System Architecture](#️-system-architecture)
-4. [The 5 Core Pillars](#️-the-5-core-pillars)
-5. [Live Razorpay Sandbox & Test Gateway](#-live-razorpay-sandbox--test-gateway)
-6. [Financial Metrics & Reconciled Telemetry](#-financial-metrics--reconciled-telemetry)
-7. [ML Telemetry & Continuous Feedback Loop](#-ml-telemetry--continuous-feedback-loop)
-8. [Real-World Recovery Scenarios](#-real-world-recovery-scenarios)
-9. [What Broke & How We Solved It](#-what-broke--how-we-solved-it)
-10. [Security & PCI-DSS Scope Boundary](#-security--pci-dss-scope-boundary)
-11. [Local Development & Quickstart](#-local-development--quickstart)
-12. [Role-Based Access Control (RBAC)](#-role-based-access-control-rbac)
-13. [Technology Stack Rationale](#️-technology-stack-rationale)
-14. [Governance & Contributing](#-governance--contributing)
+1. [Try Live Demo](#-try-live-demo-no-setup-required)
+2. [Executive Overview](#-executive-overview)
+3. [The Core Distinction: Revenue at Risk vs. Debited Funds](#-the-core-distinction)
+4. [System Architecture](#️-system-architecture)
+5. [The 5 Core Pillars](#️-the-5-core-pillars)
+6. [Live Razorpay Sandbox & Test Gateway](#-live-razorpay-sandbox--test-gateway)
+7. [Financial Metrics & Reconciled Telemetry](#-financial-metrics--reconciled-telemetry)
+8. [ML Telemetry & Continuous Feedback Loop](#-ml-telemetry--continuous-feedback-loop)
+9. [Real-World Recovery Scenarios](#-real-world-recovery-scenarios)
+10. [What Broke & How We Solved It](#-what-broke--how-we-solved-it)
+11. [Security & PCI-DSS Scope Boundary](#-security--pci-dss-scope-boundary)
+12. [Local Development & Quickstart](#-local-development--quickstart)
+13. [Production Deployment](#-production-deployment)
+14. [Role-Based Access Control (RBAC)](#-role-based-access-control-rbac)
+15. [Technology Stack Rationale](#️-technology-stack-rationale)
+16. [Governance & Contributing](#-governance--contributing)
 
 ---
 
