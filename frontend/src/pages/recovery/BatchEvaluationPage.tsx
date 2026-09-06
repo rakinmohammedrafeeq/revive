@@ -354,16 +354,19 @@ export function BatchEvaluationPage() {
             </div>
           </div>
           <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap justify-end">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleCheckRecent}
-              disabled={checkingRecent}
-              className="text-xs border-red-500/30 hover:bg-red-500/20 text-red-200"
-            >
-              {checkingRecent ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <History className="w-3.5 h-3.5 mr-1" />}
-              Check Recent Result
-            </Button>
+            {/* Only show Check Recent Result if error is NOT about cancellation */}
+            {!error.toLowerCase().includes('cancel') && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCheckRecent}
+                disabled={checkingRecent}
+                className="text-xs border-red-500/30 hover:bg-red-500/20 text-red-200"
+              >
+                {checkingRecent ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <History className="w-3.5 h-3.5 mr-1" />}
+                Check Recent Result
+              </Button>
+            )}
             {error.toLowerCase().includes('no') && error.toLowerCase().includes('found') && (
               <Button
                 variant="outline"
