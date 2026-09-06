@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { 
   PlayCircle, 
   Layers, 
@@ -17,8 +17,10 @@ import {
   RefreshCw,
   History,
   ShieldCheck,
-  Info
+  Info,
+  StopCircle
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { recoveryAdminApi, type BatchValidationResult } from '@/api/recoveryApi'
 import { formatCurrency } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -37,6 +39,8 @@ export function BatchEvaluationPage() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [checkingRecent, setCheckingRecent] = useState(false)
   const [seedingData, setSeedingData] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     let interval: any = null
@@ -53,17 +57,50 @@ export function BatchEvaluationPage() {
     }
   }, [running])
 
+  // Cleanup: Cancel batch evaluation when user navigates away from the page
+  useEffect(() => {
+    return () => {
+      // Component is unmounting (user navigated away)
+      if (abortControllerRef.current && running) {
+        console.log('User navigated away - cancelling batch evaluation')
+        abortControllerRef.current.abort()
+        toast.info('Batch evaluation cancelled (page navigation)')
+      }
+    }
+  }, [running])
+
   const handleRunBatch = async () => {
     try {
       setRunning(true)
       setError(null)
+      setCancelling(false)
+      
+      // Create new AbortController for this request
+      abortControllerRef.current = new AbortController()
+      
       const data = await recoveryAdminApi.runBatchEvaluation()
       setResult(data)
+      abortControllerRef.current = null
     } catch (err: any) {
       console.error('Batch evaluation failed:', err)
-      setError(err?.response?.data?.message || err?.message || 'Batch evaluation failed to complete. Please try again.')
+      if (err.name === 'AbortError' || err.message?.includes('cancel')) {
+        setError('Batch evaluation was cancelled.')
+        toast.info('Batch evaluation cancelled by user')
+      } else {
+        setError(err?.response?.data?.message || err?.message || 'Batch evaluation failed to complete. Please try again.')
+      }
+      abortControllerRef.current = null
     } finally {
       setRunning(false)
+      setCancelling(false)
+    }
+  }
+
+  const handleCancelBatch = () => {
+    if (abortControllerRef.current && running) {
+      setCancelling(true)
+      abortControllerRef.current.abort()
+      toast.info('Cancelling batch evaluation...')
     }
   }
 
@@ -88,13 +125,13 @@ export function BatchEvaluationPage() {
     try {
       setSeedingData(true)
       setError(null)
+      toast.loading('Generating synthetic test data...', { id: 'seed-data' })
       const response = await recoveryAdminApi.generateDemoData(60)
-      // Show success message
-      setError(null)
-      // Optionally show a success notification
-      alert(`✅ Successfully generated ${response.generated} test failed payments! You can now run batch evaluation.`)
+      // Show success toast notification
+      toast.success(`✅ Successfully generated ${response.generated} test failed payments! You can now run batch evaluation.`, { id: 'seed-data' })
     } catch (err: any) {
       console.error('Failed to seed data:', err)
+      toast.error(`Failed to generate test data: ${err?.response?.data?.message || err?.message || 'Unknown error'}`, { id: 'seed-data' })
       setError(err?.response?.data?.message || err?.message || 'Failed to generate test data. Please try again.')
     } finally {
       setSeedingData(false)
@@ -125,7 +162,7 @@ export function BatchEvaluationPage() {
             </span>
             <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center gap-1">
               <Clock className="w-3 h-3" />
-              ~75-90s per batch (10 cases)
+              ~90-120s per batch (10 cases)
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
@@ -146,6 +183,27 @@ export function BatchEvaluationPage() {
             >
               <Download className="w-4 h-4" />
               Export Evidence JSON
+            </Button>
+          )}
+
+          {running && (
+            <Button
+              variant="outline"
+              onClick={handleCancelBatch}
+              disabled={cancelling}
+              className="gap-2 border-red-500/30 hover:bg-red-500/10 text-red-400 hover:text-red-300"
+            >
+              {cancelling ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Cancelling...
+                </>
+              ) : (
+                <>
+                  <StopCircle className="w-4 h-4" />
+                  Cancel Batch
+                </>
+              )}
             </Button>
           )}
 
@@ -245,7 +303,7 @@ export function BatchEvaluationPage() {
             <div className="space-y-2">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-xs font-medium text-primary">
                 <Clock className="w-3.5 h-3.5" />
-                <span>Typical Run Time: ~75–90s (10 cases • ~8s/case)</span>
+                <span>Typical Run Time: ~90–120s (10 cases • ~10s/case)</span>
               </div>
               <h3 className="text-xl font-bold text-foreground">Ready for Batch Evaluation</h3>
               <p className="text-sm text-muted-foreground max-w-lg mx-auto">
@@ -257,10 +315,6 @@ export function BatchEvaluationPage() {
               <Button onClick={handleRunBatch} className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-6">
                 <PlayCircle className="w-4 h-4" />
                 Start Batch Validation
-              </Button>
-              <Button variant="outline" onClick={handleCheckRecent} disabled={checkingRecent} className="gap-2 border-border hover:bg-accent text-xs">
-                <History className="w-4 h-4" />
-                View Recent Run
               </Button>
               <Button 
                 variant="outline" 
@@ -300,7 +354,7 @@ export function BatchEvaluationPage() {
                 <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
                   Running Recovery Pipeline
                   <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 font-normal">
-                    Case {Math.min(10, Math.floor(elapsedSeconds / 8.5) + 1)} of ~10
+                    Case {Math.min(10, Math.floor(elapsedSeconds / 10.5) + 1)} of ~10
                   </span>
                 </h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -316,7 +370,7 @@ export function BatchEvaluationPage() {
                 <span>Elapsed: <strong className="text-foreground font-semibold">{elapsedSeconds}s</strong></span>
               </div>
               <div className="text-[11px] text-muted-foreground/80 mt-0.5">
-                Estimated: ~75–90s (10 cases)
+                Estimated: ~90–120s (10 cases)
               </div>
             </div>
           </div>
@@ -327,13 +381,13 @@ export function BatchEvaluationPage() {
               <div
                 className="h-full bg-gradient-to-r from-primary via-emerald-500 to-primary rounded-full transition-all duration-500 animate-pulse"
                 style={{
-                  width: `${Math.min(95, Math.max(6, Math.round((elapsedSeconds / 85) * 100)))}%`
+                  width: `${Math.min(95, Math.max(6, Math.round((elapsedSeconds / 105) * 100)))}%`
                 }}
               />
             </div>
             <div className="flex justify-between text-[11px] text-muted-foreground">
-              <span>Evaluating case {Math.min(10, Math.floor(elapsedSeconds / 8.5) + 1)} of ~10</span>
-              <span>{Math.min(95, Math.max(6, Math.round((elapsedSeconds / 85) * 100)))}% estimated</span>
+              <span>Evaluating case {Math.min(10, Math.floor(elapsedSeconds / 10.5) + 1)} of ~10</span>
+              <span>{Math.min(95, Math.max(6, Math.round((elapsedSeconds / 105) * 100)))}% estimated</span>
             </div>
           </div>
 
