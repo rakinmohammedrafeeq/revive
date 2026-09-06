@@ -63,7 +63,8 @@ export function BatchEvaluationPage() {
       const token = getStoredToken()
       let baseUrl = import.meta.env.VITE_API_BASE_URL || ''
       if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1)
-      const url = `${baseUrl}/recovery/batch/cancel`
+      const path = baseUrl.endsWith('/api') ? '/recovery/batch/cancel' : '/api/recovery/batch/cancel'
+      const url = `${baseUrl}${path}`
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       }

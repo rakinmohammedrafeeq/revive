@@ -161,6 +161,10 @@ public class RecoveryOrchestrationService {
             }
 
             // ── STEP 3: AI Failure Diagnosis ────────────────────────────────
+            if (Thread.currentThread().isInterrupted()) {
+                logger.warn("Pipeline interrupted before AI diagnosis for {}. Halting recovery workflow immediately.", payment.getPaymentIdentifier());
+                throw new RuntimeException("Execution interrupted / cancelled by user");
+            }
             logger.info("Step 3: AI diagnosis for {}", payment.getPaymentIdentifier());
             AiDiagnosisResult diagnosis;
             try {

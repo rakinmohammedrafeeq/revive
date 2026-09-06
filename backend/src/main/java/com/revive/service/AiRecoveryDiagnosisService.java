@@ -102,11 +102,20 @@ public class AiRecoveryDiagnosisService {
      * Tries Groq models first, cascades to Gemini, and defaults to deterministic safe fallback.
      */
     public AiDiagnosisResult diagnose(FailedPayment payment) {
+        if (Thread.currentThread().isInterrupted()) {
+            logger.warn("Thread interrupted before AI diagnosis for {}. Skipping LLM calls immediately.", payment.getPaymentIdentifier());
+            return getSafeFallback(payment);
+        }
+
         String prompt = buildDiagnosisPrompt(payment);
 
         // 1. Try Groq models first (lowest latency)
         if (groqApiKey != null && !groqApiKey.isBlank() && !groqDisabled) {
             for (String model : groqModels) {
+                if (Thread.currentThread().isInterrupted()) {
+                    logger.warn("Thread interrupted during Groq AI diagnosis for {}. Halting LLM calls.", payment.getPaymentIdentifier());
+                    return getSafeFallback(payment);
+                }
                 if (disabledModels.contains(model)) {
                     continue;
                 }
@@ -120,6 +129,10 @@ public class AiRecoveryDiagnosisService {
                         return result;
                     }
                 } catch (Exception e) {
+                    if (Thread.currentThread().isInterrupted() || e instanceof java.io.InterruptedIOException) {
+                        logger.warn("Groq call interrupted for payment {}. Halting.", payment.getPaymentIdentifier());
+                        return getSafeFallback(payment);
+                    }
                     String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
                     if (msg.contains("404") || msg.contains("400") || msg.contains("model_not_found")
                             || msg.contains("does not exist") || msg.contains("decommissioned")
@@ -138,9 +151,18 @@ public class AiRecoveryDiagnosisService {
             }
         }
 
+        if (Thread.currentThread().isInterrupted()) {
+            logger.warn("Thread interrupted before Gemini fallback for {}. Skipping LLM calls.", payment.getPaymentIdentifier());
+            return getSafeFallback(payment);
+        }
+
         // 2. Try Gemini models as cross-provider fallback
         if (geminiApiKey != null && !geminiApiKey.isBlank() && !geminiDisabled) {
             for (String model : geminiModels) {
+                if (Thread.currentThread().isInterrupted()) {
+                    logger.warn("Thread interrupted during Gemini AI diagnosis for {}. Halting LLM calls.", payment.getPaymentIdentifier());
+                    return getSafeFallback(payment);
+                }
                 if (disabledModels.contains(model)) {
                     continue;
                 }
@@ -154,6 +176,10 @@ public class AiRecoveryDiagnosisService {
                         return result;
                     }
                 } catch (Exception e) {
+                    if (Thread.currentThread().isInterrupted() || e instanceof java.io.InterruptedIOException) {
+                        logger.warn("Gemini call interrupted for payment {}. Halting.", payment.getPaymentIdentifier());
+                        return getSafeFallback(payment);
+                    }
                     String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
                     if (msg.contains("404") || msg.contains("not found") || msg.contains("does not exist")
                             || msg.contains("decommissioned")) {
