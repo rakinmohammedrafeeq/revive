@@ -3,8 +3,8 @@ package com.revive.entity;
 import com.revive.enums.AuditActionType;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.Type;
-import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -77,7 +77,7 @@ public class AuditTrail {
      * Detailed information about the action
      * Stored as JSONB for flexibility (includes request params, state changes, etc.)
      */
-    @Type(JsonBinaryType.class)
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb", nullable = false)
     private String details;
 

@@ -51,6 +51,12 @@ public interface RecoveryActionRepository extends JpaRepository<RecoveryAction, 
            "WHERE fp.workspace.id = :workspaceId")
     long countByFailedPaymentWorkspaceId(@Param("workspaceId") Long workspaceId);
 
+    /** Group count recovery actions by status for a workspace in a single query */
+    @Query("SELECT ra.status, COUNT(ra) FROM RecoveryAction ra " +
+           "JOIN ra.failedPayment fp " +
+           "WHERE fp.workspace.id = :workspaceId GROUP BY ra.status")
+    List<Object[]> countByWorkspaceIdGroupByStatus(@Param("workspaceId") Long workspaceId);
+
     /** Count actions by status for a workspace */
     @Query("SELECT COUNT(ra) FROM RecoveryAction ra " +
            "JOIN ra.failedPayment fp " +

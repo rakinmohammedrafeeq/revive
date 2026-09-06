@@ -2,11 +2,13 @@ package com.revive.repository;
 
 import com.revive.entity.FailedPayment;
 import com.revive.enums.PaymentStatus;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -23,6 +25,31 @@ public interface FailedPaymentRepository extends JpaRepository<FailedPayment, Lo
      * Find all failed payments for a workspace
      */
     List<FailedPayment> findByWorkspaceIdOrderByFailedAtDesc(Long workspaceId);
+
+    /**
+     * Find failed payments for a workspace with limit/pagination
+     */
+    List<FailedPayment> findByWorkspaceIdOrderByFailedAtDesc(Long workspaceId, Pageable pageable);
+
+    /**
+     * Sum payment amounts for a workspace directly in database
+     */
+    @Query("SELECT COALESCE(SUM(fp.amount), 0) FROM FailedPayment fp WHERE fp.workspace.id = :workspaceId")
+    BigDecimal sumAmountByWorkspaceId(@Param("workspaceId") Long workspaceId);
+
+    /**
+     * Group count failed payments by status for a workspace in a single query
+     */
+    @Query("SELECT fp.status, COUNT(fp) FROM FailedPayment fp WHERE fp.workspace.id = :workspaceId GROUP BY fp.status")
+    List<Object[]> countByWorkspaceIdGroupByStatus(@Param("workspaceId") Long workspaceId);
+
+    /**
+     * Get recovery timestamp pairs without loading entire entity graphs
+     */
+    @Query("SELECT fp.failedAt, fp.recoveredAt FROM FailedPayment fp " +
+           "WHERE fp.workspace.id = :workspaceId AND fp.status = com.revive.enums.PaymentStatus.RECOVERED " +
+           "AND fp.failedAt IS NOT NULL AND fp.recoveredAt IS NOT NULL")
+    List<Object[]> findRecoveryTimestampsByWorkspaceId(@Param("workspaceId") Long workspaceId);
 
     /**
      * Find by status and workspace

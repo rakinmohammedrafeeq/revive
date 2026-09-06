@@ -4,8 +4,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.revive.enums.PaymentStatus;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.Type;
-import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -141,7 +141,7 @@ public class FailedPayment {
      * Additional metadata (gateway response, customer preferences, etc.)
      * Stored as JSONB for flexibility
      */
-    @Type(JsonBinaryType.class)
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private String metadata;
 

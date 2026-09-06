@@ -5,8 +5,8 @@ import com.revive.enums.PaymentStatus;
 import com.revive.enums.PredictionMethod;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.Type;
-import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -73,7 +73,7 @@ public class MlPrediction {
     /**
      * Snapshot of input features at prediction time (JSONB)
      */
-    @Type(JsonBinaryType.class)
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "features", columnDefinition = "jsonb", nullable = false)
     private String features;
 

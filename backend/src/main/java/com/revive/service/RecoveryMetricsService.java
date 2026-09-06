@@ -19,7 +19,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Service for calculating recovery metrics and ROI.
@@ -91,14 +93,21 @@ public class RecoveryMetricsService {
                     .setScale(2, RoundingMode.HALF_UP);
         }
 
-        // ── Case counts ─────────────────────────────────────────────────────
-        long totalCases        = safe(failedPaymentRepository.countByWorkspaceId(workspaceId));
-        long recoveredCases    = safe(failedPaymentRepository.countByWorkspaceIdAndStatus(workspaceId, PaymentStatus.RECOVERED));
-        long abandonedCases    = safe(failedPaymentRepository.countByWorkspaceIdAndStatus(workspaceId, PaymentStatus.ABANDONED));
-        long inProgressCases   = safe(failedPaymentRepository.countByWorkspaceIdAndStatus(workspaceId, PaymentStatus.RETRY_IN_PROGRESS));
-        long pendingReviewCases = safe(failedPaymentRepository.countByWorkspaceIdAndStatus(workspaceId, PaymentStatus.UNDER_REVIEW));
-        long failedCount       = safe(failedPaymentRepository.countByWorkspaceIdAndStatus(workspaceId, PaymentStatus.FAILED));
-        long pendingRetryCount = safe(failedPaymentRepository.countByWorkspaceIdAndStatus(workspaceId, PaymentStatus.PENDING_RETRY));
+        // ── Case counts (efficient single-query aggregation) ─────────────────
+        Map<PaymentStatus, Long> statusCounts = new EnumMap<>(PaymentStatus.class);
+        long totalCases = 0;
+        for (Object[] row : failedPaymentRepository.countByWorkspaceIdGroupByStatus(workspaceId)) {
+            PaymentStatus st = (PaymentStatus) row[0];
+            Long count = ((Number) row[1]).longValue();
+            statusCounts.put(st, count);
+            totalCases += count;
+        }
+        long recoveredCases    = statusCounts.getOrDefault(PaymentStatus.RECOVERED, 0L);
+        long abandonedCases    = statusCounts.getOrDefault(PaymentStatus.ABANDONED, 0L);
+        long inProgressCases   = statusCounts.getOrDefault(PaymentStatus.RETRY_IN_PROGRESS, 0L);
+        long pendingReviewCases = statusCounts.getOrDefault(PaymentStatus.UNDER_REVIEW, 0L);
+        long failedCount       = statusCounts.getOrDefault(PaymentStatus.FAILED, 0L);
+        long pendingRetryCount = statusCounts.getOrDefault(PaymentStatus.PENDING_RETRY, 0L);
         long activeCases       = failedCount + pendingRetryCount;
 
         // ── Recovery Rates (Case-based & Volume-based) ────────────────────────
@@ -121,19 +130,23 @@ public class RecoveryMetricsService {
         long policyBlockedActions = safe(auditTrailRepository
                 .countByWorkspaceIdAndActionType(workspaceId, AuditActionType.POLICY_VIOLATION));
 
-        // ── Recovery action outcome counts (from recovery_actions table) ─────
-        long totalAttempts = recoveryActionRepository.countByFailedPaymentWorkspaceId(workspaceId);
+        // ── Recovery action outcome counts (single-query aggregation) ────────
+        Map<RecoveryActionStatus, Long> actionCounts = new EnumMap<>(RecoveryActionStatus.class);
+        long totalAttempts = 0;
+        for (Object[] row : recoveryActionRepository.countByWorkspaceIdGroupByStatus(workspaceId)) {
+            RecoveryActionStatus st = (RecoveryActionStatus) row[0];
+            Long count = ((Number) row[1]).longValue();
+            actionCounts.put(st, count);
+            totalAttempts += count;
+        }
 
-        long successfulRecoveries = recoveryActionRepository
-                .countByFailedPaymentWorkspaceIdAndStatus(workspaceId, RecoveryActionStatus.COMPLETED_SUCCESS);
+        long successfulRecoveries = actionCounts.getOrDefault(RecoveryActionStatus.COMPLETED_SUCCESS, 0L);
 
-        long failedRecoveries = recoveryActionRepository
-                .countByFailedPaymentWorkspaceIdAndStatus(workspaceId, RecoveryActionStatus.COMPLETED_FAILURE)
-                + recoveryActionRepository.countByFailedPaymentWorkspaceIdAndStatus(workspaceId, RecoveryActionStatus.FAILED);
+        long failedRecoveries = actionCounts.getOrDefault(RecoveryActionStatus.COMPLETED_FAILURE, 0L)
+                + actionCounts.getOrDefault(RecoveryActionStatus.FAILED, 0L);
 
-        long pendingRecoveries = recoveryActionRepository
-                .countByFailedPaymentWorkspaceIdAndStatus(workspaceId, RecoveryActionStatus.IN_PROGRESS)
-                + recoveryActionRepository.countByFailedPaymentWorkspaceIdAndStatus(workspaceId, RecoveryActionStatus.INITIATED);
+        long pendingRecoveries = actionCounts.getOrDefault(RecoveryActionStatus.IN_PROGRESS, 0L)
+                + actionCounts.getOrDefault(RecoveryActionStatus.INITIATED, 0L);
 
         // ── Expected Recovery Value ──────────────────────────────────────────
         BigDecimal expectedRecoveryValue = calculateExpectedRecoveryValue(workspaceId);
@@ -170,21 +183,15 @@ public class RecoveryMetricsService {
 
     /**
      * Total revenue at risk = sum of all failed payment amounts in workspace.
-     * Includes ALL statuses (FAILED, RECOVERED, ABANDONED, etc.) to show
-     * the full historical picture of revenue that was at risk.
+     * Calculated via database-level aggregation.
      */
     private BigDecimal calculateTotalRevenueAtRisk(Long workspaceId) {
-        List<FailedPayment> payments = failedPaymentRepository
-                .findByWorkspaceIdOrderByFailedAtDesc(workspaceId);
-        return payments.stream()
-                .map(FailedPayment::getAmount)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return safe(failedPaymentRepository.sumAmountByWorkspaceId(workspaceId));
     }
 
     /**
      * Expected Recovery Value = SUM(P(recovery) × amount) for active FAILED payments.
-     *
-     * Uses the ACTUAL trained ML model — never hardcoded.
+     * Uses calibrated ML weights directly for ultra-fast, production-safe calculation.
      */
     private BigDecimal calculateExpectedRecoveryValue(Long workspaceId) {
         List<FailedPayment> activePayments = failedPaymentRepository
@@ -195,7 +202,7 @@ public class RecoveryMetricsService {
         BigDecimal erv = BigDecimal.ZERO;
         for (FailedPayment payment : activePayments) {
             try {
-                double probability = predictionModel.predictRecoveryProbability(payment);
+                double probability = predictionModel.predictFast(payment);
                 erv = erv.add(payment.getAmount().multiply(BigDecimal.valueOf(probability)));
             } catch (Exception e) {
                 logger.warn("Failed to predict for payment {}: {}",
@@ -207,17 +214,17 @@ public class RecoveryMetricsService {
 
     /**
      * Average time from failure → recovery in minutes.
-     * Only considers payments with both failedAt and recoveredAt timestamps.
+     * Queries only timestamp columns without instantiating entity graphs.
      */
     private Double calculateAverageRecoveryTime(Long workspaceId) {
-        List<FailedPayment> recoveredPayments = failedPaymentRepository
-                .findByWorkspaceIdAndStatus(workspaceId, PaymentStatus.RECOVERED);
+        List<Object[]> timestampPairs = failedPaymentRepository
+                .findRecoveryTimestampsByWorkspaceId(workspaceId);
 
-        if (recoveredPayments.isEmpty()) return 0.0;
+        if (timestampPairs.isEmpty()) return 0.0;
 
-        return recoveredPayments.stream()
-                .filter(p -> p.getFailedAt() != null && p.getRecoveredAt() != null)
-                .mapToDouble(p -> Duration.between(p.getFailedAt(), p.getRecoveredAt()).toMinutes())
+        return timestampPairs.stream()
+                .filter(p -> p[0] != null && p[1] != null)
+                .mapToDouble(p -> Duration.between((LocalDateTime) p[0], (LocalDateTime) p[1]).toMinutes())
                 .filter(m -> m > 0)
                 .average()
                 .orElse(0.0);

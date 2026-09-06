@@ -3,8 +3,8 @@ package com.revive.entity;
 import com.revive.enums.ExportStatus;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.Type;
-import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -84,14 +84,14 @@ public class TrainingDataExport {
     /**
      * Feature columns included in export (JSONB array)
      */
-    @Type(JsonBinaryType.class)
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "feature_columns", columnDefinition = "jsonb", nullable = false)
     private String featureColumns;
 
     /**
      * Export filters applied (JSONB)
      */
-    @Type(JsonBinaryType.class)
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "export_filters", columnDefinition = "jsonb")
     private String exportFilters;
 

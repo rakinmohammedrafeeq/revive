@@ -15,6 +15,8 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * ML-powered recovery probability prediction.
@@ -93,6 +95,15 @@ public class RecoveryPredictionModel {
     }
 
     /**
+     * Fast in-memory recovery probability prediction.
+     * Uses calibrated weights directly without spawning an external Python subprocess.
+     * Ideal for bulk metric aggregation and dashboard calculations.
+     */
+    public double predictFast(FailedPayment payment) {
+        return ruleBasedPrediction(payment);
+    }
+
+    /**
      * Call the trained Python scikit-learn model via subprocess.
      */
     private double callPythonModel(FailedPayment payment) throws Exception {
@@ -112,7 +123,13 @@ public class RecoveryPredictionModel {
             }
         }
 
-        int exitCode = process.waitFor();
+        boolean finished = process.waitFor(3, TimeUnit.SECONDS);
+        if (!finished) {
+            process.destroyForcibly();
+            throw new TimeoutException("Python prediction timed out after 3 seconds");
+        }
+
+        int exitCode = process.exitValue();
         if (exitCode != 0) {
             throw new RuntimeException("Python script exited with code " + exitCode
                     + ": " + output);

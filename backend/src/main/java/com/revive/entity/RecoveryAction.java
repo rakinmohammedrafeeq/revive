@@ -5,8 +5,8 @@ import com.revive.enums.RecoveryActionStatus;
 import com.revive.enums.RecoveryActionType;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.Type;
-import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -76,7 +76,7 @@ public class RecoveryAction {
      * Outcome details (gateway response, customer reply, etc.)
      * Stored as JSONB for flexibility
      */
-    @Type(JsonBinaryType.class)
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private String outcome;
 

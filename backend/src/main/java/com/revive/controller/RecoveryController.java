@@ -19,6 +19,8 @@ import com.revive.repository.RecoveryPolicyRepository;
 import com.revive.service.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -106,20 +108,33 @@ public class RecoveryController {
     /** Get all failed payments for current workspace */
     @GetMapping("/cases")
     @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")
-    public ResponseEntity<List<FailedPayment>> getRecoveryCases() {
+    public ResponseEntity<List<FailedPaymentResponse>> getRecoveryCases(
+            @RequestParam(required = false, defaultValue = "100") Integer limit) {
+        long startTime = System.currentTimeMillis();
         Workspace workspace = resolveWorkspace();
+        int max = (limit != null && limit > 0) ? Math.min(limit, 500) : 100;
+        logger.info("Fetching recovery cases for workspace {} (limit: {})", workspace.getId(), max);
+
+        Pageable pageable = PageRequest.of(0, max);
         List<FailedPayment> payments = failedPaymentRepository
-                .findByWorkspaceIdOrderByFailedAtDesc(workspace.getId());
-        return ResponseEntity.ok(payments);
+                .findByWorkspaceIdOrderByFailedAtDesc(workspace.getId(), pageable);
+
+        List<FailedPaymentResponse> responses = payments.stream()
+                .map(this::toResponse)
+                .toList();
+
+        logger.info("Fetched {} recovery cases for workspace {} in {}ms",
+                responses.size(), workspace.getId(), System.currentTimeMillis() - startTime);
+        return ResponseEntity.ok(responses);
     }
 
     /** Get specific failed payment */
     @GetMapping("/cases/{id}")
     @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")
-    public ResponseEntity<FailedPayment> getRecoveryCase(@PathVariable Long id) {
+    public ResponseEntity<FailedPaymentResponse> getRecoveryCase(@PathVariable Long id) {
         Workspace workspace = resolveWorkspace();
         FailedPayment payment = requirePaymentInWorkspace(id, workspace);
-        return ResponseEntity.ok(payment);
+        return ResponseEntity.ok(toResponse(payment));
     }
 
     /**
@@ -220,9 +235,19 @@ public class RecoveryController {
     @GetMapping("/metrics")
     @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")
     public ResponseEntity<RecoveryMetricsResponse> getMetrics() {
+        long startTime = System.currentTimeMillis();
         Workspace workspace = resolveWorkspace();
-        RecoveryMetricsResponse metrics = metricsService.calculateMetrics(workspace.getId());
-        return ResponseEntity.ok(metrics);
+        logger.info("Fetching recovery metrics for workspace {}", workspace.getId());
+        try {
+            RecoveryMetricsResponse metrics = metricsService.calculateMetrics(workspace.getId());
+            logger.info("Successfully calculated recovery metrics for workspace {} in {}ms",
+                    workspace.getId(), System.currentTimeMillis() - startTime);
+            return ResponseEntity.ok(metrics);
+        } catch (Exception e) {
+            logger.error("Failed to calculate recovery metrics for workspace {}: {}",
+                    workspace.getId(), e.getMessage(), e);
+            throw e;
+        }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -448,6 +473,31 @@ public class RecoveryController {
                 .outcome(a.getOutcome())
                 .workspaceId(a.getWorkspace() != null ? a.getWorkspace().getId() : null)
                 .userEmail(a.getUser() != null ? a.getUser().getEmail() : null)
+                .build();
+    }
+
+    private FailedPaymentResponse toResponse(FailedPayment payment) {
+        return FailedPaymentResponse.builder()
+                .id(payment.getId())
+                .paymentIdentifier(payment.getPaymentIdentifier())
+                .orderIdentifier(payment.getOrderIdentifier())
+                .customerId(payment.getCustomerId())
+                .customerEmail(payment.getCustomerEmail())
+                .customerPhone(payment.getCustomerPhone())
+                .customerName(payment.getCustomerName())
+                .amount(payment.getAmount())
+                .currency(payment.getCurrency())
+                .status(payment.getStatus() != null ? payment.getStatus().name() : null)
+                .failureReason(payment.getFailureReason())
+                .errorCode(payment.getErrorCode())
+                .paymentMethod(payment.getPaymentMethod())
+                .retryCount(payment.getRetryCount())
+                .failedAt(payment.getFailedAt())
+                .lastRetryAt(payment.getLastRetryAt())
+                .recoveredAt(payment.getRecoveredAt())
+                .metadata(payment.getMetadata())
+                .createdAt(payment.getCreatedAt())
+                .updatedAt(payment.getUpdatedAt())
                 .build();
     }
 }

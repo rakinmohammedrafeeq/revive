@@ -57,26 +57,30 @@ class RecoveryExecutionIntegrationTest {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private RecoveryMetricsService metricsService;
+
     private Workspace testWorkspace;
     private User testUser;
 
     @BeforeEach
     void setUp() {
-        // Create test workspace
-        testWorkspace = new Workspace();
-        testWorkspace.setName("Test Workspace");
-        testWorkspace.setSlug("test-workspace");
-        testWorkspace = workspaceRepository.save(testWorkspace);
-
-        // Create test user
+        // Create test user first
         testUser = User.builder()
                 .name("Test User")
-                .email("test@example.com")
+                .email("test-" + System.nanoTime() + "@example.com")
                 .password("password")
                 .role(Role.ADMIN)
                 .active(true)
                 .build();
         testUser = userRepository.save(testUser);
+
+        // Create test workspace with owner
+        testWorkspace = new Workspace();
+        testWorkspace.setName("Test Workspace");
+        testWorkspace.setSlug("test-workspace-" + System.nanoTime());
+        testWorkspace.setOwner(testUser);
+        testWorkspace = workspaceRepository.save(testWorkspace);
     }
 
     @Test
@@ -265,6 +269,51 @@ class RecoveryExecutionIntegrationTest {
                     .isEqualByComparingTo(revenue.get().getRecoveredAmount()
                             .subtract(revenue.get().getRecoveryCost()));
         }
+    }
+
+    @Test
+    @DisplayName("Scenario I: Fast metrics calculation and accurate aggregations")
+    void testCalculateMetricsPerformanceAndCorrectness() {
+        // Given: Create a mix of payments across statuses
+        createTestPayment("PAY-METRIC-001", "gateway_timeout", PaymentStatus.FAILED, 0);
+        createTestPayment("PAY-METRIC-002", "insufficient_funds", PaymentStatus.PENDING_RETRY, 1);
+        FailedPayment recovered = createTestPayment("PAY-METRIC-003", "declined_temp", PaymentStatus.RECOVERED, 1);
+        recovered.setRecoveredAt(LocalDateTime.now().minusMinutes(30));
+        paymentRepository.save(recovered);
+        createTestPayment("PAY-METRIC-004", "card_expired", PaymentStatus.ABANDONED, 3);
+
+        // When: Calculating metrics
+        long startTime = System.currentTimeMillis();
+        var response = metricsService.calculateMetrics(testWorkspace.getId());
+        long duration = System.currentTimeMillis() - startTime;
+
+        // Then: Verify metrics correctness
+        assertThat(response).isNotNull();
+        assertThat(response.getTotalCases()).isEqualTo(4);
+        assertThat(response.getRecoveredCases()).isEqualTo(1);
+        assertThat(response.getActiveCases()).isEqualTo(2); // FAILED (1) + PENDING_RETRY (1)
+        assertThat(response.getAbandonedCases()).isEqualTo(1);
+        assertThat(response.getTotalRevenueAtRisk()).isEqualByComparingTo(new BigDecimal("20000.00"));
+        assertThat(response.getExpectedRecoveryValue()).isGreaterThan(BigDecimal.ZERO);
+
+        // Performance check: metrics must compute under 500ms
+        assertThat(duration).isLessThan(500);
+    }
+
+    @Test
+    @DisplayName("Scenario J: Repository aggregations work directly in DB")
+    void testRepositoryAggregations() {
+        // Given: 2 failed payments of 5000 each
+        createTestPayment("PAY-AGG-001", "gateway_timeout", PaymentStatus.FAILED, 0);
+        createTestPayment("PAY-AGG-002", "gateway_timeout", PaymentStatus.FAILED, 1);
+
+        // Then: Database-level sum
+        BigDecimal sum = paymentRepository.sumAmountByWorkspaceId(testWorkspace.getId());
+        assertThat(sum).isEqualByComparingTo(new BigDecimal("10000.00"));
+
+        // Status group count
+        var statusCounts = paymentRepository.countByWorkspaceIdGroupByStatus(testWorkspace.getId());
+        assertThat(statusCounts).isNotEmpty();
     }
 
     // ─── Helper Methods ────────────────────────────────────────────────────

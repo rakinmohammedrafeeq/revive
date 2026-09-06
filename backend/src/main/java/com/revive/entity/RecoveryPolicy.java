@@ -2,8 +2,8 @@ package com.revive.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.Type;
-import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -73,7 +73,7 @@ public class RecoveryPolicy {
     /**
      * Allowed recovery channels (comma-separated or JSONB array)
      */
-    @Type(JsonBinaryType.class)
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "allowed_channels", columnDefinition = "jsonb")
     private String allowedChannels;
 
@@ -81,7 +81,7 @@ public class RecoveryPolicy {
      * Additional policy rules (payment method restrictions, time windows, etc.)
      * Stored as JSONB for flexibility
      */
-    @Type(JsonBinaryType.class)
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "policy_rules", columnDefinition = "jsonb")
     private String policyRules;
 
