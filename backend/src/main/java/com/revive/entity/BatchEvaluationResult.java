@@ -3,8 +3,8 @@ package com.revive.entity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.Type;
-import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -55,15 +55,15 @@ public class BatchEvaluationResult {
     @Column(name = "ml_recall")
     private Double mlRecall;
 
-    @Type(JsonBinaryType.class)
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "outcome_breakdown", columnDefinition = "jsonb")
     private Map<String, Integer> outcomeBreakdown;
 
-    @Type(JsonBinaryType.class)
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "blocked_reasons", columnDefinition = "jsonb")
     private Map<String, Integer> blockedReasons;
 
-    @Type(JsonBinaryType.class)
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "detailed_metrics", columnDefinition = "jsonb")
     private Map<String, Object> detailedMetrics;
 
