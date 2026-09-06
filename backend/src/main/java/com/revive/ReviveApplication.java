@@ -4,6 +4,9 @@ import io.github.cdimascio.dotenv.Dotenv;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
+/**
+ * Revive Application - AI Revenue Recovery Engine
+ */
 @SpringBootApplication
 public class ReviveApplication {
 

@@ -8,6 +8,10 @@ import { ScrollToTop } from '@/components/layout/ScrollToTop'
 import App from './App'
 import './index.css'
 
+/**
+ * Revive Frontend - AI Revenue Recovery Platform
+ */
+
 // Diagnostic: Check for duplicate React instances
 if (import.meta.env.DEV) {
   console.log('React version:', React.version)
