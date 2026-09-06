@@ -395,8 +395,43 @@ public class BatchValidationService {
         public void setCumulativeMetrics(Object cumulativeMetrics) { 
             this.cumulativeMetrics = cumulativeMetrics; 
         }
+        
+        // Additional helper getters for batch result storage
+        public Map<String, Object> getMlModelStats() {
+            if (cumulativeMetrics instanceof Map) {
+                return (Map<String, Object>) cumulativeMetrics;
+            }
+            return null;
+        }
+        
+        public Map<String, Integer> getOutcomeBreakdown() {
+            Map<String, Integer> breakdown = new HashMap<>();
+            breakdown.put("executed", executedCount != null ? executedCount : 0);
+            breakdown.put("successful", successfulRecoveries != null ? successfulRecoveries : 0);
+            breakdown.put("failed", failedExecutions != null ? failedExecutions : 0);
+            breakdown.put("blocked", blockedCases != null ? blockedCases : 0);
+            breakdown.put("escalated", escalatedCases != null ? escalatedCases : 0);
+            return breakdown;
+        }
+        
+        public Map<String, Integer> getBlockedReasons() {
+            Map<String, Integer> reasons = new HashMap<>();
+            reasons.put("duplicate", duplicateBlockedCount != null ? duplicateBlockedCount : 0);
+            reasons.put("policy", policyBlockedCount != null ? policyBlockedCount : 0);
+            return reasons;
+        }
+        
+        public BigDecimal getTotalRecoveredRevenue() {
+            return recoveredRevenue != null ? recoveredRevenue : BigDecimal.ZERO;
+        }
+        
+        public long getDurationSeconds() {
+            if (batchStartTime != null && batchEndTime != null) {
+                return Duration.between(batchStartTime, batchEndTime).getSeconds();
+            }
+            return 0;
+        }
     }
-}
 
     /**
      * Save batch evaluation result to database for historical tracking
@@ -474,3 +509,4 @@ public class BatchValidationService {
             logger.info("Auto-cleanup: Deleted {} batch results older than 90 days", deleted);
         }
     }
+}

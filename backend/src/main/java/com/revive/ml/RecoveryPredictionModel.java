@@ -37,6 +37,7 @@ public class RecoveryPredictionModel {
     private static final String PYTHON_SCRIPT = "ml/predict.py";
 
     private final ObjectMapper objectMapper;
+    private boolean loggedPythonWarning = false;
 
     // Rule-based fallback weights — calibrated from Random Forest feature importances
     // error_code is most important (0.28), followed by time_since_failure (0.12), amount (0.11)
@@ -88,17 +89,6 @@ public class RecoveryPredictionModel {
         }
 
         // Fallback: use rule-based heuristics
-        return ruleBasedPrediction(payment);
-    }
-
-    private boolean loggedPythonWarning = false;
-                        payment.getPaymentIdentifier(), e.getMessage());
-            }
-        } else {
-            logger.debug("Python script not found at {}, using rule-based fallback", PYTHON_SCRIPT);
-        }
-
-        // Fallback: rule-based sigmoid model
         return ruleBasedPrediction(payment);
     }
 

@@ -2,6 +2,7 @@ package com.revive.controller;
 
 import com.revive.dto.*;
 import com.revive.entity.AuditTrail;
+import com.revive.entity.BatchEvaluationResult;
 import com.revive.entity.FailedPayment;
 import com.revive.entity.RecoveryAction;
 import com.revive.entity.RecoveryPolicy;
