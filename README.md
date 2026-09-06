@@ -414,7 +414,7 @@ For complete vulnerability reporting and security policies, please see [**SECURI
 ### Prerequisites
 * **Java 21** or later
 * **Node.js 18+** & `npm`
-* **Python 3.10+**
+* **Python 3.10+** (for ML model predictions)
 * **PostgreSQL** instance (Neon Cloud DB recommended)
 
 ### 1. Clone & Configure
@@ -422,8 +422,10 @@ For complete vulnerability reporting and security policies, please see [**SECURI
 git clone https://github.com/rakinmohammedrafeeq/revive.git
 cd revive
 
-# Create environment configuration
+# Backend configuration
+cd backend
 cp .env.example .env
+# Edit .env with your database credentials and API keys
 ```
 
 ### 2. Start Backend Core
@@ -441,12 +443,53 @@ npm run dev
 ```
 *Frontend runs on `http://localhost:5173`.*
 
-### 4. (Optional) Run ML Diagnostics
+### 4. ML Model Integration
+The ML model (`backend/ml/models/recovery_model.pkl`) is automatically loaded on backend startup. Python 3 is required for predictions.
+
+**Evaluate model performance:**
 ```bash
-cd ml
-pip install -r requirements.txt
+cd backend/ml
+pip install scikit-learn pandas numpy joblib
 python evaluate_model.py
 ```
+
+---
+
+## 🌐 Production Deployment
+
+### Live Deployment URLs
+- **Frontend**: [https://revive-ops.vercel.app](https://revive-ops.vercel.app)
+- **Backend API**: [https://revive-backend-qfre.onrender.com](https://revive-backend-qfre.onrender.com)
+- **Health Check**: [https://revive-backend-qfre.onrender.com/actuator/health](https://revive-backend-qfre.onrender.com/actuator/health)
+
+### Architecture
+```
+┌──────────────────┐         ┌─────────────────────┐
+│  Vercel (CDN)    │────────►│  Render (Docker)    │
+│  React Frontend  │  HTTPS  │  Spring Boot + ML   │
+└──────────────────┘         └──────────┬──────────┘
+                                        │
+                                        ▼
+                             ┌──────────────────────┐
+                             │  Neon PostgreSQL     │
+                             │  (Serverless DB)     │
+                             └──────────────────────┘
+```
+
+### Deployment Stack
+| Component | Platform | Configuration |
+|:----------|:---------|:--------------|
+| **Frontend** | Vercel | Vite build, automatic HTTPS, global CDN |
+| **Backend** | Render | Docker container, Python + Java runtime |
+| **Database** | Neon | Serverless PostgreSQL with connection pooling |
+| **ML Model** | Embedded | scikit-learn Random Forest in backend Docker image |
+
+### Key Configuration
+- **Backend Root Directory**: `backend/`
+- **Frontend Root Directory**: `frontend/`
+- **ML Model Path**: `backend/ml/models/recovery_model.pkl`
+- **Docker Build**: Multi-stage build with Java 17 JRE + Python 3
+- **Environment**: All secrets managed via platform environment variables
 
 ### 5. Access & Pre-Seeded Admin Credentials
 
