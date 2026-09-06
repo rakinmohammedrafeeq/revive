@@ -51,8 +51,10 @@ services:
       - key: APP_BASE_URL
         value: https://revive-ops.vercel.app
       
-      # Vector Embeddings (Disabled for production to save RAM)
+      # Vector Embeddings & ML Processors (Disabled for production to save RAM & CPU)
       - key: DISABLE_EMBEDDINGS
+        value: true
+      - key: DISABLE_PYTHON_SUBPROCESS
         value: true
       
       # AI Configuration - Gemini
@@ -75,15 +77,15 @@ services:
       - key: GEMINI_TEXT_FALLBACK3
         value: gemini-2.5-flash-lite
       
-      # AI Configuration - Groq (Fallback)
+      # AI Configuration - Groq (High-speed active models)
       - key: GROQ_API_KEY
         sync: false
       - key: GROQ_TEXT_MODEL
-        value: llama-3.3-70b-versatile
-      - key: GROQ_TEXT_FALLBACK1
-        value: llama-3.1-70b-versatile
-      - key: GROQ_TEXT_FALLBACK2
         value: openai/gpt-oss-20b
+      - key: GROQ_TEXT_FALLBACK1
+        value: openai/gpt-oss-120b
+      - key: GROQ_TEXT_FALLBACK2
+        value: qwen/qwen3.6-27b
       - key: GROQ_VISION_MODEL
         value: llama-3.2-90b-vision-preview
       

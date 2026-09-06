@@ -46,32 +46,51 @@ public class AiRecoveryDiagnosisService {
         this.objectMapper = objectMapper;
 
         Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
-        this.groqApiKey = dotenv.get("GROQ_API_KEY");
-        this.geminiApiKey = dotenv.get("GEMINI_API_KEY");
+        this.groqApiKey = resolveConfig(dotenv, "GROQ_API_KEY");
+        this.geminiApiKey = resolveConfig(dotenv, "GEMINI_API_KEY");
 
-        // Build prioritized list of Groq models
+        // Build prioritized list of Groq models (using active high-speed models)
         Set<String> groqSet = new LinkedHashSet<>();
-        addIfValid(groqSet, dotenv.get("GROQ_TEXT_MODEL", "llama-3.3-70b-versatile"));
-        addIfValid(groqSet, dotenv.get("GROQ_TEXT_FALLBACK1", "llama-3.1-70b-versatile"));
-        addIfValid(groqSet, dotenv.get("GROQ_TEXT_FALLBACK2", "openai/gpt-oss-20b"));
-        addIfValid(groqSet, "mixtral-8x7b-32768");
+        addIfValid(groqSet, resolveConfig(dotenv, "GROQ_TEXT_MODEL", "openai/gpt-oss-20b"));
+        addIfValid(groqSet, resolveConfig(dotenv, "GROQ_TEXT_FALLBACK1", "openai/gpt-oss-120b"));
+        addIfValid(groqSet, resolveConfig(dotenv, "GROQ_TEXT_FALLBACK2", "qwen/qwen3.6-27b"));
+        addIfValid(groqSet, "groq/compound-mini");
         this.groqModels = new ArrayList<>(groqSet);
 
         // Build prioritized list of Gemini models
         Set<String> geminiSet = new LinkedHashSet<>();
-        addIfValid(geminiSet, dotenv.get("GEMINI_TEXT_PRIMARY", "gemini-2.5-flash"));
-        addIfValid(geminiSet, dotenv.get("GEMINI_TEXT_FALLBACK1", "gemini-2.5-flash-lite"));
-        addIfValid(geminiSet, dotenv.get("GEMINI_TEXT_FALLBACK2", "gemini-2.0-flash"));
-        addIfValid(geminiSet, dotenv.get("GEMINI_TEXT_FALLBACK3", "gemini-1.5-flash"));
+        addIfValid(geminiSet, resolveConfig(dotenv, "GEMINI_TEXT_PRIMARY", "gemini-2.5-flash"));
+        addIfValid(geminiSet, resolveConfig(dotenv, "GEMINI_TEXT_FALLBACK1", "gemini-2.5-flash-lite"));
+        addIfValid(geminiSet, resolveConfig(dotenv, "GEMINI_TEXT_FALLBACK2", "gemini-2.0-flash"));
+        addIfValid(geminiSet, resolveConfig(dotenv, "GEMINI_TEXT_FALLBACK3", "gemini-1.5-flash"));
         this.geminiModels = new ArrayList<>(geminiSet);
 
         logger.info("AI Recovery Diagnosis Service initialized. Groq models: {}, Gemini models: {}",
                 groqModels, geminiModels);
     }
 
+    private String resolveConfig(Dotenv dotenv, String key, String defaultValue) {
+        String val = System.getenv(key);
+        if (val == null || val.isBlank()) {
+            val = dotenv.get(key);
+        }
+        return (val != null && !val.isBlank()) ? val.trim() : defaultValue;
+    }
+
+    private String resolveConfig(Dotenv dotenv, String key) {
+        return resolveConfig(dotenv, key, null);
+    }
+
     private void addIfValid(Set<String> set, String modelName) {
         if (modelName != null && !modelName.isBlank() && !modelName.startsWith("your_")) {
-            set.add(modelName.trim());
+            String trimmed = modelName.trim();
+            // Automatically skip known decommissioned Groq models
+            if (trimmed.equals("llama-3.1-8b-instant") || trimmed.equals("llama-3.1-70b-versatile")
+                    || trimmed.equals("mixtral-8x7b-32768")) {
+                logger.warn("Skipping decommissioned model from config: {}", trimmed);
+                return;
+            }
+            set.add(trimmed);
         }
     }
 
@@ -103,8 +122,10 @@ public class AiRecoveryDiagnosisService {
                     }
                 } catch (Exception e) {
                     String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
-                    if (msg.contains("404") || msg.contains("model_not_found") || msg.contains("does not exist")) {
-                        logger.warn("Groq model [{}] does not exist (404). Disabling it for future calls.", model);
+                    if (msg.contains("404") || msg.contains("400") || msg.contains("model_not_found")
+                            || msg.contains("does not exist") || msg.contains("decommissioned")
+                            || msg.contains("model_decommissioned")) {
+                        logger.warn("Groq model [{}] is unavailable or decommissioned. Disabling it.", model);
                         disabledModels.add(model);
                     } else if (msg.contains("401") || msg.contains("invalid api key") || msg.contains("unauthorized")) {
                         logger.warn("Groq authentication failed (401). Disabling Groq and switching directly to Gemini.");
@@ -135,7 +156,8 @@ public class AiRecoveryDiagnosisService {
                     }
                 } catch (Exception e) {
                     String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
-                    if (msg.contains("404") || msg.contains("not found") || msg.contains("does not exist")) {
+                    if (msg.contains("404") || msg.contains("not found") || msg.contains("does not exist")
+                            || msg.contains("decommissioned")) {
                         logger.warn("Gemini model [{}] does not exist (404). Disabling it for future calls.", model);
                         disabledModels.add(model);
                     } else if (msg.contains("401") || msg.contains("invalid key") || msg.contains("unauthorized")) {
@@ -149,6 +171,7 @@ public class AiRecoveryDiagnosisService {
                 }
             }
         }
+
 
         // 3. Fallback to calibrated deterministic rule-based diagnosis
         logger.info("Using calibrated deterministic rule-based fallback diagnosis for payment {}",
@@ -301,18 +324,13 @@ public class AiRecoveryDiagnosisService {
                 return null;
             }
 
-            // Remove markdown code blocks if present
+            // Remove markdown code blocks and any wrapping commentary if present
             String cleanJson = response.trim();
-            if (cleanJson.startsWith("```json")) {
-                cleanJson = cleanJson.substring(7);
+            int startIdx = cleanJson.indexOf('{');
+            int endIdx = cleanJson.lastIndexOf('}');
+            if (startIdx != -1 && endIdx > startIdx) {
+                cleanJson = cleanJson.substring(startIdx, endIdx + 1);
             }
-            if (cleanJson.startsWith("```")) {
-                cleanJson = cleanJson.substring(3);
-            }
-            if (cleanJson.endsWith("```")) {
-                cleanJson = cleanJson.substring(0, cleanJson.length() - 3);
-            }
-            cleanJson = cleanJson.trim();
 
             JsonNode jsonResponse = objectMapper.readTree(cleanJson);
 

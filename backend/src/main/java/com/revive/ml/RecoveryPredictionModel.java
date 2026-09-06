@@ -3,6 +3,7 @@ package com.revive.ml;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.revive.entity.FailedPayment;
+import io.github.cdimascio.dotenv.Dotenv;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -50,14 +51,26 @@ public class RecoveryPredictionModel {
     public RecoveryPredictionModel(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
 
-        io.github.cdimascio.dotenv.Dotenv dotenv = io.github.cdimascio.dotenv.Dotenv.configure().ignoreIfMissing().load();
-        String disabledEnv = dotenv.get("DISABLE_PYTHON_ML");
+        Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
+        String disabledEnv = System.getenv("DISABLE_PYTHON_SUBPROCESS");
+        if (disabledEnv == null) {
+            disabledEnv = System.getenv("DISABLE_PYTHON_ML");
+        }
         if (disabledEnv == null) {
             disabledEnv = dotenv.get("DISABLE_PYTHON_SUBPROCESS");
         }
-        if ("true".equalsIgnoreCase(disabledEnv) || "true".equalsIgnoreCase(System.getProperty("revive.ml.python-subprocess-disabled"))) {
+        if (disabledEnv == null) {
+            disabledEnv = dotenv.get("DISABLE_PYTHON_ML");
+        }
+
+        boolean isProduction = "true".equalsIgnoreCase(System.getenv("RENDER"))
+                || System.getenv("PORT") != null
+                || "production".equalsIgnoreCase(System.getenv("SPRING_PROFILES_ACTIVE"))
+                || "prod".equalsIgnoreCase(System.getenv("SPRING_PROFILES_ACTIVE"));
+
+        if ("true".equalsIgnoreCase(disabledEnv) || isProduction || "true".equalsIgnoreCase(System.getProperty("revive.ml.python-subprocess-disabled"))) {
             this.pythonDisabled = true;
-            logger.info("Python ML subprocess explicitly disabled. Using pure-Java calibrated prediction model.");
+            logger.info("Python ML subprocess explicitly disabled (production/configured). Using pure-Java calibrated prediction model (<0.01ms).");
         }
 
         // Calibrated from training data feature importances
@@ -128,6 +141,12 @@ public class RecoveryPredictionModel {
         pb.redirectErrorStream(true);
         Process process = pb.start();
 
+        boolean finished = process.waitFor(1500, TimeUnit.MILLISECONDS);
+        if (!finished) {
+            process.destroyForcibly();
+            throw new TimeoutException("Python prediction timed out after 1500ms");
+        }
+
         StringBuilder output = new StringBuilder();
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(process.getInputStream()))) {
@@ -135,12 +154,6 @@ public class RecoveryPredictionModel {
             while ((line = reader.readLine()) != null) {
                 output.append(line);
             }
-        }
-
-        boolean finished = process.waitFor(1500, TimeUnit.MILLISECONDS);
-        if (!finished) {
-            process.destroyForcibly();
-            throw new TimeoutException("Python prediction timed out after 1500ms");
         }
 
         int exitCode = process.exitValue();

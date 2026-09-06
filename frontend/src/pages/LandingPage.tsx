@@ -701,10 +701,21 @@ function HeroDynamicBackground() {
 
 export function LandingPage() {
   const { isAuthenticated } = useAuth()
+  const [isScrolled, setIsScrolled] = useState(false)
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+
+  useEffect(() => {
+    const handleScroll = () => {
+      // Set isScrolled to true when user scrolls down even a tiny bit
+      setIsScrolled(window.scrollY > 0)
+    }
+
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
   return (
     <div className="min-h-screen bg-background text-foreground relative overflow-x-hidden">
@@ -718,20 +729,38 @@ export function LandingPage() {
       </div>
 
       {/* ── Fixed Sticky Navbar ────────────────────────────────────────── */}
-      <header className="fixed top-0 left-0 right-0 z-50 w-full border-b border-border bg-background/90 backdrop-blur-xl shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <header className={`fixed z-50 transition-all duration-500 ease-in-out ${
+        isScrolled 
+          ? 'top-6 left-8 right-8 rounded-2xl border border-border bg-background/95 backdrop-blur-xl shadow-lg' 
+          : 'top-0 left-0 right-0 border-b border-border bg-background/90 backdrop-blur-xl shadow-sm'
+      }`}>
+        <div className={`mx-auto flex items-center justify-between transition-all duration-500 ${
+          isScrolled 
+            ? 'max-w-6xl px-6 sm:px-8 h-14' 
+            : 'max-w-7xl px-4 sm:px-6 lg:px-8 h-16'
+        }`}>
 
-          <Link to="/" onClick={scrollToTop} className="flex items-center gap-2.5 cursor-pointer">
-            <img src={APP_LOGO_SRC} alt="Revive" className="h-7 w-7" />
+          <Link to="/" onClick={scrollToTop} className={`flex items-center cursor-pointer transition-all duration-500 ${
+            isScrolled ? 'gap-2' : 'gap-2.5'
+          }`}>
+            <img src={APP_LOGO_SRC} alt="Revive" className={`transition-all duration-500 ${
+              isScrolled ? 'h-6 w-6' : 'h-7 w-7'
+            }`} />
             <div className="flex flex-col">
-              <span className="text-lg font-bold tracking-tight text-foreground">REVIVE</span>
-              <span className="text-[9px] font-bold uppercase tracking-wider text-primary">
+              <span className={`font-bold tracking-tight text-foreground transition-all duration-500 ${
+                isScrolled ? 'text-base' : 'text-lg'
+              }`}>REVIVE</span>
+              <span className={`font-bold uppercase tracking-wider text-primary transition-all duration-500 ${
+                isScrolled ? 'text-[8px]' : 'text-[9px]'
+              }`}>
                 AI Revenue Recovery
               </span>
             </div>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-muted-foreground">
+          <nav className={`hidden md:flex items-center font-medium text-muted-foreground transition-all duration-500 ${
+            isScrolled ? 'gap-6 text-[13px]' : 'gap-8 text-sm'
+          }`}>
             <a href="#live-stream" className="hover:text-foreground transition-colors flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               Live Engine
@@ -750,11 +779,17 @@ export function LandingPage() {
             </a>
           </nav>
 
-          <div className="flex items-center gap-3">
-            <ThemeToggle variant="ghost" className="h-9 w-9 rounded-xl" />
+          <div className={`flex items-center transition-all duration-500 ${
+            isScrolled ? 'gap-2' : 'gap-3'
+          }`}>
+            <ThemeToggle variant="ghost" className={`rounded-xl transition-all duration-500 ${
+              isScrolled ? 'h-8 w-8' : 'h-9 w-9'
+            }`} />
             {isAuthenticated ? (
               <Link to="/app/dashboard">
-                <Button className="rounded-xl font-semibold bg-primary hover:bg-primary/90 text-primary-foreground text-xs sm:text-sm shadow-md shadow-primary/20 gap-2">
+                <Button className={`rounded-xl font-semibold bg-primary hover:bg-primary/90 text-primary-foreground shadow-md shadow-primary/20 gap-2 transition-all duration-500 ${
+                  isScrolled ? 'text-xs h-9 px-4' : 'text-xs sm:text-sm h-10 px-5'
+                }`}>
                   <span>Dashboard</span>
                   <ArrowRight className="w-4 h-4" />
                 </Button>
@@ -763,12 +798,16 @@ export function LandingPage() {
               <>
                 <Link
                   to="/login"
-                  className="text-sm font-semibold text-foreground hover:text-primary px-3 py-2 transition-colors"
+                  className={`font-semibold text-foreground hover:text-primary transition-all duration-500 ${
+                    isScrolled ? 'text-xs px-2 py-1.5 hidden lg:block' : 'text-sm px-3 py-2'
+                  }`}
                 >
                   Sign In
                 </Link>
                 <Link to="/register">
-                  <Button className="rounded-xl font-semibold bg-primary hover:bg-primary/90 text-primary-foreground text-xs sm:text-sm shadow-md shadow-primary/20">
+                  <Button className={`rounded-xl font-semibold bg-primary hover:bg-primary/90 text-primary-foreground shadow-md shadow-primary/20 transition-all duration-500 ${
+                    isScrolled ? 'text-xs h-9 px-4' : 'text-xs sm:text-sm h-10 px-5'
+                  }`}>
                     Get Started
                     <ArrowRight className="w-4 h-4 ml-1" />
                   </Button>

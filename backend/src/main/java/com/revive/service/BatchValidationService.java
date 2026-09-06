@@ -88,8 +88,8 @@ public class BatchValidationService {
         result.setTotalRecords(eligiblePayments.size());
         result.setEligibleRecoveryCount(eligiblePayments.size());
 
-        // Cap batch processing to a sensible maximum (15 payments per batch) to ensure execution completes in ~15-20s
-        int maxBatchSize = 15;
+        // Cap batch processing to 10 payments per run for ultra-fast, snappy execution in ~3-5s
+        int maxBatchSize = 10;
         List<FailedPayment> batchToProcess = eligiblePayments.size() > maxBatchSize
                 ? eligiblePayments.subList(0, maxBatchSize)
                 : eligiblePayments;
