@@ -216,48 +216,70 @@ export function BatchEvaluationPage() {
 
       {/* Empty State before first run */}
       {!result && !running && (
-        <div className="rounded-3xl border border-dashed border-border p-8 sm:p-12 text-center max-w-3xl mx-auto space-y-5 bg-card/50">
-          <div className="h-16 w-16 rounded-2xl bg-primary/10 border border-primary/20 mx-auto flex items-center justify-center shadow-lg shadow-primary/5">
-            <Layers className="w-8 h-8 text-primary" />
-          </div>
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-xs font-medium text-primary">
-              <Clock className="w-3.5 h-3.5" />
-              <span>Typical Run Time: ~75–90s (10 cases • ~8s/case)</span>
+        <div className="space-y-4">
+          {/* Info callout about seeding data */}
+          <div className="rounded-2xl border border-blue-500/30 bg-blue-500/10 p-5 flex items-start gap-4">
+            <div className="h-10 w-10 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center flex-shrink-0">
+              <Info className="w-5 h-5 text-blue-400" />
             </div>
-            <h3 className="text-xl font-bold text-foreground">Ready for Batch Evaluation</h3>
-            <p className="text-sm text-muted-foreground max-w-lg mx-auto">
-              Executes autonomous pipeline: ML probability scoring → Groq & Gemini multi-model AI diagnosis → Deterministic guardrails → Razorpay test execution.
-              Processes up to 10 eligible cases per execution for steady, reliable completion.
-            </p>
+            <div className="flex-1">
+              <h4 className="text-sm font-semibold text-blue-400 mb-1.5">Need Test Data First?</h4>
+              <p className="text-xs text-blue-300/90 leading-relaxed mb-3">
+                Batch evaluation requires failed payment records in your workspace. If you don't have any real failed payments yet, 
+                click <strong className="text-blue-200">"Seed Test Data"</strong> below to generate 60 realistic synthetic failed payments. 
+                This will populate your workspace with diverse payment scenarios (timeouts, insufficient funds, auth failures, etc.) 
+                so you can see the full ML → AI → Policy → Recovery pipeline in action.
+              </p>
+              <div className="flex items-center gap-2 text-[11px] text-blue-400/80">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Each seed generates ~60 cases • Takes ~2-3 seconds • Safe to run multiple times</span>
+              </div>
+            </div>
           </div>
-          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Button onClick={handleRunBatch} className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-6">
-              <PlayCircle className="w-4 h-4" />
-              Start Batch Validation
-            </Button>
-            <Button variant="outline" onClick={handleCheckRecent} disabled={checkingRecent} className="gap-2 border-border hover:bg-accent text-xs">
-              <History className="w-4 h-4" />
-              View Recent Run
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={handleSeedData} 
-              disabled={seedingData}
-              className="gap-2 border-emerald-500/30 hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs"
-            >
-              {seedingData ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Generating Data...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4" />
-                  Seed Test Data
-                </>
-              )}
-            </Button>
+
+          <div className="rounded-3xl border border-dashed border-border p-8 sm:p-12 text-center max-w-3xl mx-auto space-y-5 bg-card/50">
+            <div className="h-16 w-16 rounded-2xl bg-primary/10 border border-primary/20 mx-auto flex items-center justify-center shadow-lg shadow-primary/5">
+              <Layers className="w-8 h-8 text-primary" />
+            </div>
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-xs font-medium text-primary">
+                <Clock className="w-3.5 h-3.5" />
+                <span>Typical Run Time: ~75–90s (10 cases • ~8s/case)</span>
+              </div>
+              <h3 className="text-xl font-bold text-foreground">Ready for Batch Evaluation</h3>
+              <p className="text-sm text-muted-foreground max-w-lg mx-auto">
+                Executes autonomous pipeline: ML probability scoring → Groq & Gemini multi-model AI diagnosis → Deterministic guardrails → Razorpay test execution.
+                Processes up to 10 eligible cases per execution for steady, reliable completion.
+              </p>
+            </div>
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Button onClick={handleRunBatch} className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-6">
+                <PlayCircle className="w-4 h-4" />
+                Start Batch Validation
+              </Button>
+              <Button variant="outline" onClick={handleCheckRecent} disabled={checkingRecent} className="gap-2 border-border hover:bg-accent text-xs">
+                <History className="w-4 h-4" />
+                View Recent Run
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={handleSeedData} 
+                disabled={seedingData}
+                className="gap-2 border-emerald-500/30 hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs"
+              >
+                {seedingData ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Generating Data...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    Seed Test Data (60 cases)
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       )}
