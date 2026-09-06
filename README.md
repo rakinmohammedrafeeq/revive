@@ -10,6 +10,7 @@
 
 <p align="center">
   <a href="https://github.com/rakinmohammedrafeeq/revive"><img src="https://img.shields.io/badge/GitHub-Repository-10b981?style=for-the-badge&logo=github" alt="GitHub"/></a>
+  <a href="https://youtu.be/Iag635bpP-0"><img src="https://img.shields.io/badge/Demo-Video%20Pitch-red?style=for-the-badge&logo=youtube" alt="Demo Video"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-059669.svg?style=for-the-badge" alt="License"/></a>
   <a href="SECURITY.md"><img src="https://img.shields.io/badge/Security-PCI--DSS%20Exempt-047857.svg?style=for-the-badge" alt="Security"/></a>
 </p>
