@@ -37,7 +37,7 @@ import {
   type AuditTrailEntry,
   type RecoveryDecision
 } from '@/api/recoveryApi'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatDateTime, formatDate } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
 /**
@@ -344,7 +344,7 @@ export function RecoveryCaseDetail() {
                   {payment.retryCount} attempts logged
                 </span>
                 <span className="text-[11px] text-muted-foreground block">
-                  Failed: {new Date(payment.failedAt).toLocaleDateString()}
+                  Failed: {formatDateTime(payment.failedAt)}
                 </span>
               </div>
             </div>

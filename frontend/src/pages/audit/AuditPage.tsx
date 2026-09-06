@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { auditTrailApi, type AuditTrailEntry } from '@/api/recoveryApi'
 import { Button } from '@/components/ui/button'
+import { formatDateTime } from '@/lib/utils'
 
 /**
  * RECOVERY AUDIT TRAIL
@@ -182,7 +183,7 @@ export function AuditPage() {
                         onClick={() => setExpandedRow(isExpanded ? null : entry.id)}
                       >
                         <td className="px-6 py-3.5 text-muted-foreground whitespace-nowrap font-medium">
-                          {new Date(entry.timestamp).toLocaleString()}
+                          {formatDateTime(entry.timestamp)}
                         </td>
                         <td className="px-6 py-3.5">
                           <span className="font-semibold text-foreground flex items-center gap-1.5">
@@ -223,7 +224,7 @@ export function AuditPage() {
                             <div className="rounded-xl bg-muted/30 border border-border p-4 space-y-2 text-xs">
                               <div className="flex justify-between text-muted-foreground text-[11px]">
                                 <span>Entity: <strong className="text-foreground">{entry.entityType || 'Event'} #{entry.entityId || entry.id}</strong></span>
-                                <span>Timestamp: <strong className="text-foreground">{entry.timestamp}</strong></span>
+                                <span>Timestamp: <strong className="text-foreground">{formatDateTime(entry.timestamp)}</strong></span>
                               </div>
                               <div>
                                 <span className="text-muted-foreground font-medium block mb-1">Payload / Details:</span>

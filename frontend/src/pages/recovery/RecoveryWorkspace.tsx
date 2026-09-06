@@ -17,7 +17,7 @@ import {
   CreditCard
 } from 'lucide-react'
 import { recoveryCaseApi, recoveryMetricsApi, type FailedPayment, type RecoveryMetrics } from '@/api/recoveryApi'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatDateTime, formatDate } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { LivePaymentSimulator } from '@/components/recovery/LivePaymentSimulator'
 
@@ -356,8 +356,8 @@ export function RecoveryWorkspace() {
                           {c.paymentMethod}
                         </span>
                       )}
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(c.failedAt).toLocaleString()}
+                      <span className="text-xs text-muted-foreground font-mono">
+                        {formatDateTime(c.failedAt)}
                       </span>
                     </div>
 
@@ -391,7 +391,7 @@ export function RecoveryWorkspace() {
                       </div>
                       {c.recoveredAt ? (
                         <div className="text-[10px] text-emerald-500 font-medium">
-                          Captured {new Date(c.recoveredAt).toLocaleDateString()}
+                          Captured {formatDate(c.recoveredAt)}
                         </div>
                       ) : (
                         <div className="text-[10px] text-muted-foreground">

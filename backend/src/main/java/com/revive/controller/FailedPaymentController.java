@@ -140,6 +140,9 @@ public class FailedPaymentController {
             logger.warn("Automatic recovery orchestration skipped or deferred: {}", e.getMessage());
         }
 
+        // Reload payment to return latest state updated by orchestration pipeline
+        payment = failedPaymentRepository.findById(payment.getId()).orElse(payment);
+
         return ResponseEntity.ok(toResponse(payment));
     }
 

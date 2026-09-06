@@ -26,7 +26,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, parseDate, formatDateTime } from '@/lib/utils'
 import {
   recoveryCaseApi,
   recoveryMetricsApi,
@@ -78,9 +78,9 @@ function getDisplayInfo(payment: FailedPayment) {
   const diag = ERROR_TO_DIAGNOSIS[errorKey] ?? ERROR_TO_DIAGNOSIS['gateway_timeout']
   const statusInfo = STATUS_MAP[payment.status] ?? STATUS_MAP['FAILED']
 
-  const hoursAgo = Math.floor((Date.now() - new Date(payment.failedAt).getTime()) / 3_600_000)
+  const hoursAgo = Math.floor((Date.now() - parseDate(payment.failedAt).getTime()) / 3_600_000)
   const detectedAt = hoursAgo === 0
-    ? `${Math.max(1, Math.floor((Date.now() - new Date(payment.failedAt).getTime()) / 60_000))}min ago`
+    ? `${Math.max(1, Math.floor((Date.now() - parseDate(payment.failedAt).getTime()) / 60_000))}min ago`
     : `${hoursAgo}h ago`
 
   return { ...diag, detectedAt, statusInfo }
@@ -130,7 +130,7 @@ function AuditRow({ entry }: { entry: AuditTrailEntry }) {
     DUPLICATE_BLOCKED:      'text-orange-400',
   }
   const color = typeColor[entry.actionType] ?? 'text-muted-foreground'
-  const time = new Date(entry.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  const time = parseDate(entry.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 
   return (
     <div className="flex items-start gap-3 py-2 border-b border-white/5 last:border-0">
