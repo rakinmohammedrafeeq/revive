@@ -47,8 +47,15 @@ public class GroqAiService {
         // Load from environment
         Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
         this.apiKey = dotenv.get("GROQ_API_KEY");
-        // Using Llama 3.3 70B - fast, high quality, and officially supported
-        this.model = dotenv.get("GROQ_MODEL", "llama-3.3-70b-versatile");
+        // Using OpenAI GPT-OSS 20B on Groq - fast, active, and officially supported
+        String configuredModel = System.getenv("GROQ_MODEL");
+        if (configuredModel == null || configuredModel.isBlank()) {
+            configuredModel = dotenv.get("GROQ_MODEL");
+        }
+        if (configuredModel == null || configuredModel.isBlank() || configuredModel.startsWith("llama-") || configuredModel.contains("mixtral")) {
+            configuredModel = "openai/gpt-oss-20b";
+        }
+        this.model = configuredModel;
         
         if (apiKey == null || apiKey.isBlank()) {
             logger.warn("GROQ_API_KEY not configured. Text-based AI features will be disabled.");

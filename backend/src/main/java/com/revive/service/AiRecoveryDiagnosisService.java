@@ -84,10 +84,9 @@ public class AiRecoveryDiagnosisService {
     private void addIfValid(Set<String> set, String modelName) {
         if (modelName != null && !modelName.isBlank() && !modelName.startsWith("your_")) {
             String trimmed = modelName.trim();
-            // Automatically skip known decommissioned Groq models
-            if (trimmed.equals("llama-3.1-8b-instant") || trimmed.equals("llama-3.1-70b-versatile")
-                    || trimmed.equals("mixtral-8x7b-32768")) {
-                logger.warn("Skipping decommissioned model from config: {}", trimmed);
+            // Automatically skip known decommissioned Groq models (all old llama-3.x and mixtral models)
+            if (trimmed.startsWith("llama-") || trimmed.contains("mixtral")) {
+                logger.warn("Skipping decommissioned Groq model from config: {}", trimmed);
                 return;
             }
             set.add(trimmed);
