@@ -349,6 +349,8 @@ public class RecoveryController {
      *
      * This is the CORE demonstration endpoint for the Buildathon:
      *   DETECT → ML PREDICT → AI DIAGNOSE → POLICY GUARD → ACT → MEASURE
+     * 
+     * Results are stored permanently for historical tracking.
      */
     @PostMapping("/batch/evaluate")
     @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")
@@ -360,7 +362,40 @@ public class RecoveryController {
         BatchValidationService.BatchValidationResult result = 
                 batchValidationService.runBatchValidation(workspace.getId(), batchStartTime);
         
+        // Store result permanently
+        batchValidationService.saveBatchResult(workspace, result, batchStartTime);
+        
         return ResponseEntity.ok(result);
+    }
+
+    /** Get historical batch evaluation results */
+    @GetMapping("/batch/history")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")
+    public ResponseEntity<List<BatchEvaluationResult>> getBatchHistory() {
+        Workspace workspace = resolveWorkspace();
+        List<BatchEvaluationResult> history = batchValidationService.getBatchHistory(workspace.getId());
+        return ResponseEntity.ok(history);
+    }
+
+    /** Delete a specific batch result */
+    @DeleteMapping("/batch/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> deleteBatchResult(@PathVariable Long id) {
+        Workspace workspace = resolveWorkspace();
+        batchValidationService.deleteBatchResult(id, workspace.getId());
+        return ResponseEntity.ok(Map.of("message", "Batch result deleted"));
+    }
+
+    /** Clear all batch results for workspace */
+    @DeleteMapping("/batch/clear-all")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> clearAllBatchResults() {
+        Workspace workspace = resolveWorkspace();
+        int deleted = batchValidationService.clearAllBatchResults(workspace.getId());
+        return ResponseEntity.ok(Map.of(
+            "message", "All batch results cleared",
+            "deleted", deleted
+        ));
     }
 
     /** Dataset statistics and ML model summary */

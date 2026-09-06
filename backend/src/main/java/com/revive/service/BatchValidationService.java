@@ -2,15 +2,16 @@ package com.revive.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.revive.dto.RecoveryDecision;
+import com.revive.entity.BatchEvaluationResult;
 import com.revive.entity.FailedPayment;
+import com.revive.entity.Workspace;
 import com.revive.enums.PaymentStatus;
-import com.revive.repository.AuditTrailRepository;
-import com.revive.repository.FailedPaymentRepository;
-import com.revive.repository.RecoveredRevenueRepository;
-import com.revive.repository.RecoveryActionRepository;
+import com.revive.repository.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.Duration;
@@ -39,6 +40,7 @@ public class BatchValidationService {
     private final RecoveredRevenueRepository recoveredRevenueRepository;
     private final AuditTrailRepository auditTrailRepository;
     private final RecoveryMetricsService metricsService;
+    private final BatchEvaluationResultRepository batchResultRepository;
     private final ObjectMapper objectMapper;
 
     public BatchValidationService(
@@ -48,6 +50,7 @@ public class BatchValidationService {
             RecoveredRevenueRepository recoveredRevenueRepository,
             AuditTrailRepository auditTrailRepository,
             RecoveryMetricsService metricsService,
+            BatchEvaluationResultRepository batchResultRepository,
             ObjectMapper objectMapper) {
         this.orchestrationService = orchestrationService;
         this.failedPaymentRepository = failedPaymentRepository;
@@ -55,6 +58,7 @@ public class BatchValidationService {
         this.recoveredRevenueRepository = recoveredRevenueRepository;
         this.auditTrailRepository = auditTrailRepository;
         this.metricsService = metricsService;
+        this.batchResultRepository = batchResultRepository;
         this.objectMapper = objectMapper;
     }
 
@@ -393,3 +397,80 @@ public class BatchValidationService {
         }
     }
 }
+
+    /**
+     * Save batch evaluation result to database for historical tracking
+     */
+    @Transactional
+    public BatchEvaluationResult saveBatchResult(Workspace workspace, BatchValidationResult result, LocalDateTime evaluatedAt) {
+        BatchEvaluationResult entity = BatchEvaluationResult.builder()
+                .workspace(workspace)
+                .evaluatedAt(evaluatedAt)
+                .totalPaymentsEvaluated(result.getTotalRecords())
+                .autoApproved(result.getExecutedCount())
+                .requiresReview(result.getEscalatedCases())
+                .blocked(result.getBlockedCases())
+                .mlAccuracy(result.getMlModelStats() != null ? 
+                        (Double) result.getMlModelStats().get("accuracy") : null)
+                .outcomeBreakdown(result.getOutcomeBreakdown())
+                .blockedReasons(result.getBlockedReasons())
+                .detailedMetrics(Map.of(
+                    "processedCount", result.getProcessedCount(),
+                    "successfulRecoveries", result.getSuccessfulRecoveries(),
+                    "failedExecutions", result.getFailedExecutions(),
+                    "totalRevenue", result.getTotalRecoveredRevenue().toString(),
+                    "duration", result.getDurationSeconds()
+                ))
+                .build();
+
+        return batchResultRepository.save(entity);
+    }
+
+    /**
+     * Get batch evaluation history for workspace
+     */
+    @Transactional(readOnly = true)
+    public List<BatchEvaluationResult> getBatchHistory(Long workspaceId) {
+        return batchResultRepository.findByWorkspaceIdOrderByEvaluatedAtDesc(workspaceId);
+    }
+
+    /**
+     * Delete a specific batch result (with workspace security check)
+     */
+    @Transactional
+    public void deleteBatchResult(Long id, Long workspaceId) {
+        BatchEvaluationResult result = batchResultRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Batch result not found"));
+        
+        if (!result.getWorkspace().getId().equals(workspaceId)) {
+            throw new RuntimeException("Unauthorized: Batch result belongs to different workspace");
+        }
+        
+        batchResultRepository.deleteById(id);
+        logger.info("Deleted batch result {} for workspace {}", id, workspaceId);
+    }
+
+    /**
+     * Clear all batch results for workspace
+     */
+    @Transactional
+    public int clearAllBatchResults(Long workspaceId) {
+        long count = batchResultRepository.countByWorkspaceId(workspaceId);
+        batchResultRepository.deleteAllByWorkspaceId(workspaceId);
+        logger.info("Cleared {} batch results for workspace {}", count, workspaceId);
+        return (int) count;
+    }
+
+    /**
+     * Auto-cleanup: Delete batch results older than 90 days
+     * Runs daily at 2 AM
+     */
+    @Scheduled(cron = "0 0 2 * * *")
+    @Transactional
+    public void autoCleanupOldResults() {
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(90);
+        int deleted = batchResultRepository.deleteOlderThan(cutoff);
+        if (deleted > 0) {
+            logger.info("Auto-cleanup: Deleted {} batch results older than 90 days", deleted);
+        }
+    }
