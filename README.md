@@ -44,6 +44,18 @@
 
 </div>
 
+> [!WARNING]
+> **⏳ First-Time Load: Please Wait 3-5 Minutes**  
+> The backend is hosted on Render's free tier, which **spins down after 15 minutes of inactivity**.  
+> **On your first visit**, the server needs to cold start (build Docker image, load ML model, connect to database).  
+> 
+> **What to expect:**
+> - ⏱️ First page load: 3-5 minutes (backend waking up)
+> - ⚡ Subsequent requests: Instant (server stays warm)
+> - 🔄 If inactive for 15+ minutes: Another 3-5 minute cold start
+>
+> **Tip**: Keep the tab open to maintain the session warm!
+
 > [!TIP]
 > **🔑 Instant Demo Credentials**  
 > Test the live platform immediately without manual setup:
@@ -54,11 +66,12 @@
 
 ### Quick Demo Steps:
 1. **Visit**: [https://revive-ops.vercel.app](https://revive-ops.vercel.app)
-2. **Login**: Use demo credentials above
-3. **Navigate**: Go to "Recovery Cases" in the sidebar
-4. **Test Payment**: Click "Pay ₹1 (Razorpay Test Mode)" 
-5. **Simulate Failure**: In Razorpay modal → Netbanking → Demo Bank → Click **[Failure]** button
-6. **Watch**: ML prediction + AI diagnosis appear in real-time! 🎉
+2. **Wait**: ⏳ First load takes 3-5 minutes (backend cold start) - be patient!
+3. **Login**: Use demo credentials above
+4. **Navigate**: Go to "Recovery Cases" in the sidebar
+5. **Test Payment**: Click "Pay ₹1 (Razorpay Test Mode)" 
+6. **Simulate Failure**: In Razorpay modal → Netbanking → Demo Bank → Click **[Failure]** button
+7. **Watch**: ML prediction + AI diagnosis appear in real-time! 🎉
 
 ---
 
@@ -487,6 +500,11 @@ python evaluate_model.py
 - **Frontend**: [https://revive-ops.vercel.app](https://revive-ops.vercel.app)
 - **Backend API**: [https://revive-backend-qfre.onrender.com](https://revive-backend-qfre.onrender.com)
 - **Health Check**: [https://revive-backend-qfre.onrender.com/actuator/health](https://revive-backend-qfre.onrender.com/actuator/health)
+
+> [!NOTE]
+> **⚠️ Render Free Tier Cold Start**: The backend spins down after 15 minutes of inactivity.  
+> First request after inactivity takes **3-5 minutes** to wake up (Docker image rebuild, ML model loading, database connection).  
+> Keep the app open or set up [UptimeRobot](https://uptimerobot.com/) to ping every 5 minutes to prevent cold starts.
 
 ### Architecture
 ```
