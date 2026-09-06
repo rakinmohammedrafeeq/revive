@@ -3,10 +3,11 @@ services:
   - type: web
     name: revive-backend
     runtime: java
-    plan: starter
-    buildCommand: ./mvnw clean package -DskipTests
-    startCommand: chmod +x backend/render-start.sh && ./backend/render-start.sh
-    healthCheckPath: /health
+    plan: free
+    rootDir: backend
+    buildCommand: chmod +x render-build.sh && ./render-build.sh
+    startCommand: java -Xmx350m -Xms128m -XX:+UseG1GC -jar target/*.jar
+    healthCheckPath: /healthz
     envVars:
       # Spring Configuration
       - key: SPRING_PROFILES_ACTIVE
@@ -111,3 +112,7 @@ services:
       # Admin Seeding
       - key: REVIVE_SEED_ADMIN
         value: true
+      
+      # Maven Build Memory Limits (for build process)
+      - key: MAVEN_OPTS
+        value: -Xmx512m -Xms256m -XX:+UseSerialGC
