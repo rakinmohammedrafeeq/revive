@@ -106,7 +106,7 @@ export function BatchEvaluationPage() {
             </span>
             <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 flex items-center gap-1">
               <Clock className="w-3 h-3" />
-              ~15-20s per batch
+              ~75-90s per batch (10 cases)
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
@@ -152,7 +152,7 @@ export function BatchEvaluationPage() {
 
       {/* Error state with History Recovery */}
       {error && (
-        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-red-300">
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-5 flex flex-col sm:flex-row items-center justify-between gap-4 text-red-300">
           <div className="flex items-start gap-3">
             <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-red-400" />
             <div>
@@ -192,12 +192,12 @@ export function BatchEvaluationPage() {
           <div className="space-y-2">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-xs font-medium text-primary">
               <Clock className="w-3.5 h-3.5" />
-              <span>Typical Run Time: ~15–20 seconds per batch</span>
+              <span>Typical Run Time: ~75–90s (10 cases • ~8s/case)</span>
             </div>
             <h3 className="text-xl font-bold text-foreground">Ready for Batch Evaluation</h3>
             <p className="text-sm text-muted-foreground max-w-lg mx-auto">
-              Executes autonomous pipeline: ML probability scoring → Groq Llama 3.3 & Gemini multi-model AI diagnosis → Deterministic guardrails → Razorpay test execution.
-              Processes up to 15 eligible cases per execution for rapid response.
+              Executes autonomous pipeline: ML probability scoring → Groq & Gemini multi-model AI diagnosis → Deterministic guardrails → Razorpay test execution.
+              Processes up to 10 eligible cases per execution for steady, reliable completion.
             </p>
           </div>
           <div className="pt-2 flex items-center justify-center gap-3">
@@ -228,11 +228,11 @@ export function BatchEvaluationPage() {
                 <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
                   Running Recovery Pipeline
                   <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 font-normal">
-                    Batch in progress
+                    Case {Math.min(10, Math.floor(elapsedSeconds / 8.5) + 1)} of ~10
                   </span>
                 </h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Evaluating up to 15 eligible failed payments autonomously
+                  Autonomous ML scoring, Groq & Gemini AI diagnosis, policy guardrails & test recovery
                 </p>
               </div>
             </div>
@@ -244,7 +244,7 @@ export function BatchEvaluationPage() {
                 <span>Elapsed: <strong className="text-foreground font-semibold">{elapsedSeconds}s</strong></span>
               </div>
               <div className="text-[11px] text-muted-foreground/80 mt-0.5">
-                Estimated: ~15-20s
+                Estimated: ~75–90s (10 cases)
               </div>
             </div>
           </div>
@@ -255,25 +255,25 @@ export function BatchEvaluationPage() {
               <div
                 className="h-full bg-gradient-to-r from-primary via-emerald-500 to-primary rounded-full transition-all duration-500 animate-pulse"
                 style={{
-                  width: `${Math.min(95, Math.max(8, Math.round((elapsedSeconds / 20) * 100)))}%`
+                  width: `${Math.min(95, Math.max(6, Math.round((elapsedSeconds / 85) * 100)))}%`
                 }}
               />
             </div>
             <div className="flex justify-between text-[11px] text-muted-foreground">
-              <span>Pipeline execution active</span>
-              <span>{Math.min(95, Math.max(8, Math.round((elapsedSeconds / 20) * 100)))}% estimated</span>
+              <span>Evaluating case {Math.min(10, Math.floor(elapsedSeconds / 8.5) + 1)} of ~10</span>
+              <span>{Math.min(95, Math.max(6, Math.round((elapsedSeconds / 85) * 100)))}% estimated</span>
             </div>
           </div>
 
-          {/* Pipeline Stage Cards */}
+          {/* Pipeline Stage Cards - Dynamic Per-Case Cycle */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
             <div className={`p-3 rounded-xl border text-xs transition-all ${
-              elapsedSeconds < 4 
-                ? 'bg-primary/10 border-primary/40 text-primary shadow-sm' 
+              (elapsedSeconds % 9) < 2
+                ? 'bg-primary/10 border-primary/40 text-primary shadow-sm ring-1 ring-primary/30' 
                 : 'bg-muted/20 border-border/60 text-muted-foreground'
             }`}>
               <div className="flex items-center gap-2 font-medium mb-1">
-                {elapsedSeconds < 4 ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />}
+                {(elapsedSeconds % 9) < 2 ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />}
                 1. ML Probability Scoring
               </div>
               <p className="text-[11px] opacity-80">
@@ -282,30 +282,26 @@ export function BatchEvaluationPage() {
             </div>
 
             <div className={`p-3 rounded-xl border text-xs transition-all ${
-              elapsedSeconds >= 4 && elapsedSeconds < 10
-                ? 'bg-primary/10 border-primary/40 text-primary shadow-sm' 
-                : elapsedSeconds >= 10
-                ? 'bg-muted/20 border-border/60 text-muted-foreground'
-                : 'opacity-50 bg-muted/10 border-border/40 text-muted-foreground'
+              (elapsedSeconds % 9) >= 2 && (elapsedSeconds % 9) < 5
+                ? 'bg-primary/10 border-primary/40 text-primary shadow-sm ring-1 ring-primary/30' 
+                : 'bg-muted/20 border-border/60 text-muted-foreground'
             }`}>
               <div className="flex items-center gap-2 font-medium mb-1">
-                {elapsedSeconds >= 4 && elapsedSeconds < 10 ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : elapsedSeconds >= 10 ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> : <Clock className="w-3.5 h-3.5" />}
+                {(elapsedSeconds % 9) >= 2 && (elapsedSeconds % 9) < 5 ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />}
                 2. AI Root-Cause Diagnosis
               </div>
               <p className="text-[11px] opacity-80">
-                Groq Llama 3.3 & Gemini cross-model fallback
+                Groq & Gemini multi-model auto-fallback
               </p>
             </div>
 
             <div className={`p-3 rounded-xl border text-xs transition-all ${
-              elapsedSeconds >= 10 && elapsedSeconds < 15
-                ? 'bg-primary/10 border-primary/40 text-primary shadow-sm' 
-                : elapsedSeconds >= 15
-                ? 'bg-muted/20 border-border/60 text-muted-foreground'
-                : 'opacity-50 bg-muted/10 border-border/40 text-muted-foreground'
+              (elapsedSeconds % 9) >= 5 && (elapsedSeconds % 9) < 7
+                ? 'bg-primary/10 border-primary/40 text-primary shadow-sm ring-1 ring-primary/30' 
+                : 'bg-muted/20 border-border/60 text-muted-foreground'
             }`}>
               <div className="flex items-center gap-2 font-medium mb-1">
-                {elapsedSeconds >= 10 && elapsedSeconds < 15 ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : elapsedSeconds >= 15 ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" /> : <Clock className="w-3.5 h-3.5" />}
+                {(elapsedSeconds % 9) >= 5 && (elapsedSeconds % 9) < 7 ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />}
                 3. Guardrail & Policy Check
               </div>
               <p className="text-[11px] opacity-80">
@@ -314,12 +310,12 @@ export function BatchEvaluationPage() {
             </div>
 
             <div className={`p-3 rounded-xl border text-xs transition-all ${
-              elapsedSeconds >= 15
-                ? 'bg-primary/10 border-primary/40 text-primary shadow-sm' 
-                : 'opacity-50 bg-muted/10 border-border/40 text-muted-foreground'
+              (elapsedSeconds % 9) >= 7
+                ? 'bg-primary/10 border-primary/40 text-primary shadow-sm ring-1 ring-primary/30' 
+                : 'bg-muted/20 border-border/60 text-muted-foreground'
             }`}>
               <div className="flex items-center gap-2 font-medium mb-1">
-                {elapsedSeconds >= 15 ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Clock className="w-3.5 h-3.5" />}
+                {(elapsedSeconds % 9) >= 7 ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Clock className="w-3.5 h-3.5" />}
                 4. Razorpay Test Simulation
               </div>
               <p className="text-[11px] opacity-80">
@@ -329,7 +325,7 @@ export function BatchEvaluationPage() {
           </div>
 
           <p className="text-[11px] text-center text-muted-foreground/80 bg-muted/20 py-2 px-3 rounded-lg border border-border/40">
-            💡 Processing in background. Please keep this browser tab open — results will display automatically when complete.
+            💡 Processing full cloud pipeline in background. Please keep this browser tab open — results will display automatically when complete.
           </p>
         </div>
       )}
@@ -359,7 +355,7 @@ export function BatchEvaluationPage() {
                 className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-medium text-xs shadow-md shadow-primary/15 whitespace-nowrap"
               >
                 <PlayCircle className="w-3.5 h-3.5" />
-                Run Next Batch (~{Math.min(15, result.eligibleRecoveryCount - result.processedCount)} cases)
+                Run Next Batch (~{Math.min(10, result.eligibleRecoveryCount - result.processedCount)} cases)
               </Button>
             </div>
           )}
