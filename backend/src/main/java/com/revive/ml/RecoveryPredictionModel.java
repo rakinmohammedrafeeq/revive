@@ -77,7 +77,21 @@ public class RecoveryPredictionModel {
                         payment.getPaymentIdentifier(), pyProbability);
                 return pyProbability;
             } catch (Exception e) {
-                logger.warn("Python model call failed for {}, using rule-based fallback: {}",
+                // Only log once per session to avoid spam
+                if (!loggedPythonWarning) {
+                    logger.warn("Python model unavailable, using rule-based fallback for all predictions");
+                    loggedPythonWarning = true;
+                }
+                logger.debug("Python call failed for {}: {}", 
+                        payment.getPaymentIdentifier(), e.getMessage());
+            }
+        }
+
+        // Fallback: use rule-based heuristics
+        return ruleBasedPrediction(payment);
+    }
+
+    private boolean loggedPythonWarning = false;
                         payment.getPaymentIdentifier(), e.getMessage());
             }
         } else {
