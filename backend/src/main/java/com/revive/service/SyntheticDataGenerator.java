@@ -137,7 +137,7 @@ public class SyntheticDataGenerator {
         String customerPhone = hasPhone ? "+919" + String.format("%09d", random.nextInt(1000000000)) : null;
 
         // Generate timestamps (failures spread over last 30 days)
-        LocalDateTime failedAt = LocalDateTime.now()
+        LocalDateTime failedAt = LocalDateTime.now(java.time.ZoneOffset.UTC)
                 .minusDays(random.nextInt(30))
                 .minusHours(random.nextInt(24))
                 .minusMinutes(random.nextInt(60));

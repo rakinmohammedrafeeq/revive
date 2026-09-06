@@ -124,7 +124,7 @@ public class FailedPaymentController {
                 .errorCode(request.getErrorCode())
                 .paymentMethod(request.getPaymentMethod())
                 .retryCount(0)
-                .failedAt(LocalDateTime.now())
+                .failedAt(LocalDateTime.now(java.time.ZoneOffset.UTC))
                 .metadata(metadataStr)
                 .build();
 
