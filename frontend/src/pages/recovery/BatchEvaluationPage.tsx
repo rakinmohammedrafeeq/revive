@@ -35,6 +35,7 @@ export function BatchEvaluationPage() {
   const [error, setError] = useState<string | null>(null)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [checkingRecent, setCheckingRecent] = useState(false)
+  const [seedingData, setSeedingData] = useState(false)
 
   useEffect(() => {
     let interval: any = null
@@ -79,6 +80,23 @@ export function BatchEvaluationPage() {
       setError('Could not retrieve recent batch history: ' + (err?.message || 'Network error'))
     } finally {
       setCheckingRecent(false)
+    }
+  }
+
+  const handleSeedData = async () => {
+    try {
+      setSeedingData(true)
+      setError(null)
+      const response = await recoveryAdminApi.generateDemoData(60)
+      // Show success message
+      setError(null)
+      // Optionally show a success notification
+      alert(`✅ Successfully generated ${response.generated} test failed payments! You can now run batch evaluation.`)
+    } catch (err: any) {
+      console.error('Failed to seed data:', err)
+      setError(err?.response?.data?.message || err?.message || 'Failed to generate test data. Please try again.')
+    } finally {
+      setSeedingData(false)
     }
   }
 
@@ -160,7 +178,7 @@ export function BatchEvaluationPage() {
               <p className="text-xs text-red-300/80 mt-1">{error}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 self-end sm:self-auto">
+          <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap justify-end">
             <Button
               variant="outline"
               size="sm"
@@ -171,12 +189,25 @@ export function BatchEvaluationPage() {
               {checkingRecent ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <History className="w-3.5 h-3.5 mr-1" />}
               Check Recent Result
             </Button>
+            {error.toLowerCase().includes('no') && error.toLowerCase().includes('found') && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSeedData}
+                disabled={seedingData}
+                className="text-xs border-emerald-500/30 hover:bg-emerald-500/20 text-emerald-200"
+              >
+                {seedingData ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <Sparkles className="w-3.5 h-3.5 mr-1" />}
+                Seed Test Data
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="sm"
               onClick={handleRunBatch}
               className="text-xs text-red-200 hover:bg-red-500/20"
             >
+              <RefreshCw className="w-3.5 h-3.5 mr-1" />
               Retry
             </Button>
           </div>
@@ -200,7 +231,7 @@ export function BatchEvaluationPage() {
               Processes up to 10 eligible cases per execution for steady, reliable completion.
             </p>
           </div>
-          <div className="pt-2 flex items-center justify-center gap-3">
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
             <Button onClick={handleRunBatch} className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold px-6">
               <PlayCircle className="w-4 h-4" />
               Start Batch Validation
@@ -208,6 +239,24 @@ export function BatchEvaluationPage() {
             <Button variant="outline" onClick={handleCheckRecent} disabled={checkingRecent} className="gap-2 border-border hover:bg-accent text-xs">
               <History className="w-4 h-4" />
               View Recent Run
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={handleSeedData} 
+              disabled={seedingData}
+              className="gap-2 border-emerald-500/30 hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs"
+            >
+              {seedingData ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Generating Data...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4" />
+                  Seed Test Data
+                </>
+              )}
             </Button>
           </div>
         </div>
