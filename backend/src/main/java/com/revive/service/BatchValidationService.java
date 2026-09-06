@@ -62,6 +62,28 @@ public class BatchValidationService {
         this.objectMapper = objectMapper;
     }
 
+    private final Map<Long, Boolean> activeCancellations = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<Long, Thread> activeThreads = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * Cancel an ongoing batch validation for a workspace.
+     * Sets the cancellation flag and interrupts the worker thread so the execution loop halts immediately.
+     */
+    public boolean cancelBatchValidation(Long workspaceId) {
+        logger.info("Batch validation cancellation requested for workspace {}", workspaceId);
+        activeCancellations.put(workspaceId, true);
+        Thread thread = activeThreads.get(workspaceId);
+        if (thread != null) {
+            try {
+                thread.interrupt();
+                logger.info("Interrupted active worker thread for workspace {}", workspaceId);
+            } catch (Exception e) {
+                logger.warn("Could not interrupt worker thread: {}", e.getMessage());
+            }
+        }
+        return true;
+    }
+
     /**
      * Run batch validation and produce comprehensive evidence
      * 
@@ -75,51 +97,60 @@ public class BatchValidationService {
         logger.info("Timestamp: {}", batchStartTime);
         logger.info("=".repeat(80));
 
-        BatchValidationResult result = new BatchValidationResult();
-        result.setWorkspaceId(workspaceId);
-        result.setBatchStartTime(batchStartTime);
-        result.setModelUsed("Random Forest (scikit-learn) - ml/models/recovery_model.pkl");
-        result.setTestMode(true); // Razorpay TEST MODE
+        activeCancellations.put(workspaceId, false);
+        activeThreads.put(workspaceId, Thread.currentThread());
+        try {
+            BatchValidationResult result = new BatchValidationResult();
+            result.setWorkspaceId(workspaceId);
+            result.setBatchStartTime(batchStartTime);
+            result.setModelUsed("Random Forest (scikit-learn) - ml/models/recovery_model.pkl");
+            result.setTestMode(true); // Razorpay TEST MODE
 
-        // Get all FAILED payments before batch
-        List<FailedPayment> eligiblePayments = failedPaymentRepository
-                .findByWorkspaceIdAndStatus(workspaceId, PaymentStatus.FAILED);
+            // Get all FAILED payments before batch
+            List<FailedPayment> eligiblePayments = failedPaymentRepository
+                    .findByWorkspaceIdAndStatus(workspaceId, PaymentStatus.FAILED);
 
-        result.setTotalRecords(eligiblePayments.size());
-        result.setEligibleRecoveryCount(eligiblePayments.size());
+            result.setTotalRecords(eligiblePayments.size());
+            result.setEligibleRecoveryCount(eligiblePayments.size());
 
-        // Cap batch processing to 10 payments per run for ultra-fast, snappy execution in ~3-5s
-        int maxBatchSize = 10;
-        List<FailedPayment> batchToProcess = eligiblePayments.size() > maxBatchSize
-                ? eligiblePayments.subList(0, maxBatchSize)
-                : eligiblePayments;
+            // Cap batch processing to 10 payments per run for ultra-fast, snappy execution in ~3-5s
+            int maxBatchSize = 10;
+            List<FailedPayment> batchToProcess = eligiblePayments.size() > maxBatchSize
+                    ? eligiblePayments.subList(0, maxBatchSize)
+                    : eligiblePayments;
 
-        logger.info("Found {} eligible FAILED payments for recovery (processing batch of {} in this run)",
-                eligiblePayments.size(), batchToProcess.size());
+            logger.info("Found {} eligible FAILED payments for recovery (processing batch of {} in this run)",
+                    eligiblePayments.size(), batchToProcess.size());
 
-        // Track outcomes
-        int processed = 0;
-        int executed = 0;
-        int successfulRecoveries = 0;
-        int failedExecutions = 0;
-        int blockedCases = 0;
-        int escalatedCases = 0;
-        int duplicateBlocked = 0;
-        int policyBlocked = 0;
-        int errors = 0;
-        int mlFallbackUsed = 0;
+            // Track outcomes
+            int processed = 0;
+            int executed = 0;
+            int successfulRecoveries = 0;
+            int failedExecutions = 0;
+            int blockedCases = 0;
+            int escalatedCases = 0;
+            int duplicateBlocked = 0;
+            int policyBlocked = 0;
+            int errors = 0;
+            int mlFallbackUsed = 0;
 
-        BigDecimal totalRecoveredRevenue = BigDecimal.ZERO;
-        List<Map<String, Object>> sampleResults = new ArrayList<>();
-        List<Map<String, Object>> exceptionCases = new ArrayList<>();
-        
-        long auditEventsBefore = auditTrailRepository.countByWorkspaceId(workspaceId);
+            BigDecimal totalRecoveredRevenue = BigDecimal.ZERO;
+            List<Map<String, Object>> sampleResults = new ArrayList<>();
+            List<Map<String, Object>> exceptionCases = new ArrayList<>();
+            
+            long auditEventsBefore = auditTrailRepository.countByWorkspaceId(workspaceId);
 
-        // Process each payment in the batch
-        for (FailedPayment payment : batchToProcess) {
-            try {
-                logger.info("Processing payment: {} ({})", 
-                        payment.getPaymentIdentifier(), payment.getErrorCode());
+            // Process each payment in the batch
+            for (FailedPayment payment : batchToProcess) {
+                if (Boolean.TRUE.equals(activeCancellations.get(workspaceId)) || Thread.currentThread().isInterrupted()) {
+                    logger.warn("Batch validation CANCELLED by user for workspace {}. Halting processing immediately after {} cases.",
+                            workspaceId, processed);
+                    result.setCancelled(true);
+                    break;
+                }
+                try {
+                    logger.info("Processing payment: {} ({})", 
+                            payment.getPaymentIdentifier(), payment.getErrorCode());
 
                 RecoveryDecision decision = orchestrationService.processFailedPayment(payment.getId());
                 processed++;
@@ -189,6 +220,12 @@ public class BatchValidationService {
                 }
 
             } catch (Exception e) {
+                if (Boolean.TRUE.equals(activeCancellations.get(workspaceId)) || Thread.currentThread().isInterrupted()) {
+                    logger.warn("Batch validation interrupted/cancelled during payment {}. Halting processing.", 
+                            payment.getPaymentIdentifier());
+                    result.setCancelled(true);
+                    break;
+                }
                 errors++;
                 logger.error("Error processing payment {}: {}", 
                         payment.getPaymentIdentifier(), e.getMessage(), e);
@@ -247,6 +284,10 @@ public class BatchValidationService {
         logger.info("=".repeat(80));
 
         return result;
+        } finally {
+            activeCancellations.remove(workspaceId);
+            activeThreads.remove(workspaceId);
+        }
     }
 
     /**
@@ -274,6 +315,7 @@ public class BatchValidationService {
         private LocalDateTime batchEndTime;
         private String modelUsed;
         private Boolean testMode;
+        private Boolean cancelled = false;
         
         // Input metrics
         private Integer totalRecords;
@@ -318,6 +360,9 @@ public class BatchValidationService {
         
         public Boolean getTestMode() { return testMode; }
         public void setTestMode(Boolean testMode) { this.testMode = testMode; }
+
+        public Boolean getCancelled() { return cancelled; }
+        public void setCancelled(Boolean cancelled) { this.cancelled = cancelled; }
         
         public Integer getTotalRecords() { return totalRecords; }
         public void setTotalRecords(Integer totalRecords) { this.totalRecords = totalRecords; }

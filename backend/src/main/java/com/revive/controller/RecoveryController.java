@@ -394,6 +394,19 @@ public class RecoveryController {
         return ResponseEntity.ok(result);
     }
 
+    /** Cancel an in-progress batch evaluation for the workspace */
+    @PostMapping("/batch/cancel")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")
+    public ResponseEntity<Map<String, Object>> cancelBatchEvaluation() {
+        Workspace workspace = resolveWorkspace();
+        logger.info("Request received to cancel batch evaluation for workspace {}", workspace.getId());
+        boolean cancelled = batchValidationService.cancelBatchValidation(workspace.getId());
+        return ResponseEntity.ok(Map.of(
+            "cancelled", cancelled,
+            "message", cancelled ? "Batch evaluation cancellation requested" : "No active batch evaluation to cancel"
+        ));
+    }
+
     /** Get historical batch evaluation results */
     @GetMapping("/batch/history")
     @PreAuthorize("hasAnyRole('ADMIN', 'ANALYST', 'VIEWER')")

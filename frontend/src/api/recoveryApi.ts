@@ -313,8 +313,12 @@ export const recoveryAdminApi = {
     apiClient.post<{ generated: number; message?: string; workspace?: string }>('/recovery/demo/generate', { count }).then((r) => r.data),
 
   /** Run batch evaluation across all pending payments — returns rich evidence */
-  runBatchEvaluation: () =>
-    apiClient.post<BatchValidationResult>('/recovery/batch/evaluate').then((r) => r.data),
+  runBatchEvaluation: (signal?: AbortSignal) =>
+    apiClient.post<BatchValidationResult>('/recovery/batch/evaluate', {}, { signal }).then((r) => r.data),
+
+  /** Cancel an in-progress batch evaluation on the backend */
+  cancelBatchEvaluation: () =>
+    apiClient.post<{ cancelled: boolean; message: string }>('/recovery/batch/cancel').then((r) => r.data),
 
   /** Get historical batch evaluation runs */
   getBatchHistory: () =>

@@ -24,6 +24,7 @@ import { toast } from 'sonner'
 import { recoveryAdminApi, type BatchValidationResult } from '@/api/recoveryApi'
 import { formatCurrency } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { getStoredToken } from '@/store/authStore'
 
 /**
  * BATCH EVALUATION — CHECKPOINT 4
@@ -40,68 +41,183 @@ export function BatchEvaluationPage() {
   const [checkingRecent, setCheckingRecent] = useState(false)
   const [seedingData, setSeedingData] = useState(false)
   const [cancelling, setCancelling] = useState(false)
-  const abortControllerRef = useRef<AbortController | null>(null)
+  const [progressPercent, setProgressPercent] = useState(0)
 
+  const abortControllerRef = useRef<AbortController | null>(null)
+  const runningRef = useRef(false)
+  const isCancellingRef = useRef(false)
+  const rewindIntervalRef = useRef<any>(null)
+
+  // Sync runningRef with running state
+  useEffect(() => {
+    runningRef.current = running
+  }, [running])
+
+  // Helper to reliably notify backend to cancel (Axios + keepalive fetch)
+  const triggerBackendCancel = () => {
+    // 1. Fire cancel endpoint via apiClient
+    recoveryAdminApi.cancelBatchEvaluation().catch(() => {})
+
+    // 2. Fire cancel via fetch with keepalive: true for browser close/refresh resilience
+    try {
+      const token = getStoredToken()
+      let baseUrl = import.meta.env.VITE_API_BASE_URL || ''
+      if (baseUrl.endsWith('/')) baseUrl = baseUrl.slice(0, -1)
+      const url = `${baseUrl}/recovery/batch/cancel`
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+      fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({}),
+        keepalive: true,
+      }).catch(() => {})
+    } catch {
+      // ignore
+    }
+  }
+
+  // Live timer & forward progress while running
   useEffect(() => {
     let interval: any = null
-    if (running) {
+    if (running && !cancelling) {
       setElapsedSeconds(0)
+      setProgressPercent(5)
       interval = setInterval(() => {
-        setElapsedSeconds((prev) => prev + 1)
+        setElapsedSeconds((prev) => {
+          const next = prev + 1
+          // Estimated ~105s total for 10 cases, smooth progress from 5% up to 95%
+          const calculated = Math.min(95, Math.max(5, Math.round((next / 105) * 100)))
+          setProgressPercent(calculated)
+          return next
+        })
       }, 1000)
-    } else {
+    } else if (!running && !cancelling) {
       setElapsedSeconds(0)
     }
     return () => {
       if (interval) clearInterval(interval)
     }
-  }, [running])
+  }, [running, cancelling])
 
-  // Cleanup: Cancel batch evaluation when user navigates away from the page
+  // Cleanup on unmount (when user switches to any other page)
   useEffect(() => {
     return () => {
-      // Component is unmounting (user navigated away)
-      if (abortControllerRef.current && running) {
-        console.log('User navigated away - cancelling batch evaluation')
-        abortControllerRef.current.abort()
-        toast.info('Batch evaluation cancelled (page navigation)')
+      if (rewindIntervalRef.current) {
+        clearInterval(rewindIntervalRef.current)
+        rewindIntervalRef.current = null
+      }
+      if (runningRef.current) {
+        console.log('User navigated away - cancelling batch evaluation on backend')
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort()
+        }
+        triggerBackendCancel()
       }
     }
-  }, [running])
+  }, [])
+
+  // Cancel on window/tab close or refresh (beforeunload)
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (runningRef.current) {
+        triggerBackendCancel()
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [])
 
   const handleRunBatch = async () => {
     try {
+      if (rewindIntervalRef.current) {
+        clearInterval(rewindIntervalRef.current)
+        rewindIntervalRef.current = null
+      }
+      isCancellingRef.current = false
       setRunning(true)
+      runningRef.current = true
       setError(null)
       setCancelling(false)
-      
+      setProgressPercent(5)
+
       // Create new AbortController for this request
       abortControllerRef.current = new AbortController()
-      
-      const data = await recoveryAdminApi.runBatchEvaluation()
-      setResult(data)
+
+      const data = await recoveryAdminApi.runBatchEvaluation(abortControllerRef.current.signal)
+      if (!isCancellingRef.current) {
+        setResult(data)
+        setProgressPercent(100)
+      }
       abortControllerRef.current = null
     } catch (err: any) {
       console.error('Batch evaluation failed:', err)
-      if (err.name === 'AbortError' || err.message?.includes('cancel')) {
+      // If user triggered cancel, rewind animation handles UI reset and cancellation toast
+      if (isCancellingRef.current) {
+        return
+      }
+      if (
+        err.name === 'AbortError' ||
+        err.name === 'CanceledError' ||
+        err.message?.includes('cancel') ||
+        err.message?.includes('abort')
+      ) {
         setError('Batch evaluation was cancelled.')
-        toast.info('Batch evaluation cancelled by user')
+        toast.info('Batch evaluation cancelled.')
       } else {
         setError(err?.response?.data?.message || err?.message || 'Batch evaluation failed to complete. Please try again.')
       }
       abortControllerRef.current = null
     } finally {
-      setRunning(false)
-      setCancelling(false)
+      if (!isCancellingRef.current) {
+        setRunning(false)
+        runningRef.current = false
+        setCancelling(false)
+      }
     }
   }
 
   const handleCancelBatch = () => {
-    if (abortControllerRef.current && running) {
-      setCancelling(true)
+    if (isCancellingRef.current || !running) return
+    isCancellingRef.current = true
+    setCancelling(true)
+
+    // 1. Abort the client-side HTTP request immediately
+    if (abortControllerRef.current) {
       abortControllerRef.current.abort()
-      toast.info('Cancelling batch evaluation...')
     }
+
+    // 2. Fire backend cancellation immediately
+    triggerBackendCancel()
+    toast.info('Cancelling batch evaluation & rolling back...')
+
+    // 3. Smooth rewind animation: decrement progress down to 0%
+    if (rewindIntervalRef.current) clearInterval(rewindIntervalRef.current)
+
+    rewindIntervalRef.current = setInterval(() => {
+      setProgressPercent((prev) => {
+        const next = prev - 4
+        if (next <= 0) {
+          clearInterval(rewindIntervalRef.current)
+          rewindIntervalRef.current = null
+          isCancellingRef.current = false
+          runningRef.current = false
+          setRunning(false)
+          setCancelling(false)
+          setError('Batch evaluation was cancelled.')
+          toast.warning('Batch evaluation halted and cancelled.')
+          return 0
+        }
+        return next
+      })
+    }, 35) // Takes ~35ms * 25 steps = ~875ms for a silky smooth rollback
   }
 
   const handleCheckRecent = async () => {
@@ -196,7 +312,7 @@ export function BatchEvaluationPage() {
               {cancelling ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Cancelling...
+                  Cancelling ({progressPercent}%)...
                 </>
               ) : (
                 <>
@@ -339,26 +455,44 @@ export function BatchEvaluationPage() {
         </div>
       )}
 
-      {/* Running State with Live Timer and Progress */}
+      {/* Running / Cancelling State with Live Timer and Progress */}
       {running && (
-        <div className="rounded-3xl border border-primary/25 bg-card/90 backdrop-blur-md p-8 sm:p-10 max-w-2xl mx-auto space-y-6 shadow-2xl relative overflow-hidden animate-slide-up">
-          <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className={`rounded-3xl border ${
+          cancelling 
+            ? 'border-amber-500/40 bg-amber-500/5' 
+            : 'border-primary/25 bg-card/90'
+        } backdrop-blur-md p-8 sm:p-10 max-w-2xl mx-auto space-y-6 shadow-2xl relative overflow-hidden animate-slide-up`}>
+          <div className={`absolute -top-24 -right-24 w-48 h-48 ${
+            cancelling ? 'bg-amber-500/15' : 'bg-primary/10'
+          } rounded-full blur-3xl pointer-events-none`} />
+          <div className={`absolute -bottom-24 -left-24 w-48 h-48 ${
+            cancelling ? 'bg-red-500/15' : 'bg-emerald-500/10'
+          } rounded-full blur-3xl pointer-events-none`} />
 
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-                <Loader2 className="w-5 h-5 text-primary animate-spin" />
+              <div className={`h-10 w-10 rounded-xl ${
+                cancelling 
+                  ? 'bg-amber-500/15 border border-amber-500/30 text-amber-500' 
+                  : 'bg-primary/10 border border-primary/20 text-primary'
+              } flex items-center justify-center`}>
+                <Loader2 className="w-5 h-5 animate-spin" />
               </div>
               <div>
                 <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
-                  Running Recovery Pipeline
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 font-normal">
-                    Case {Math.min(10, Math.floor(elapsedSeconds / 10.5) + 1)} of ~10
+                  {cancelling ? 'Cancelling Batch Evaluation' : 'Running Recovery Pipeline'}
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${
+                    cancelling 
+                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' 
+                      : 'bg-primary/10 text-primary border border-primary/20'
+                  } font-normal`}>
+                    {cancelling ? 'Rolling back' : `Case ${Math.min(10, Math.floor(elapsedSeconds / 10.5) + 1)} of ~10`}
                   </span>
                 </h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Autonomous ML scoring, Groq & Gemini AI diagnosis, policy guardrails & test recovery
+                  {cancelling 
+                    ? 'Halting backend execution and rolling back progress...' 
+                    : 'Autonomous ML scoring, Groq & Gemini AI diagnosis, policy guardrails & test recovery'}
                 </p>
               </div>
             </div>
@@ -366,28 +500,44 @@ export function BatchEvaluationPage() {
             {/* Live Elapsed & Estimated Timer */}
             <div className="text-right">
               <div className="text-xs text-muted-foreground font-mono flex items-center gap-1.5 justify-end">
-                <Clock className="w-3.5 h-3.5 text-primary animate-pulse" />
+                <Clock className={`w-3.5 h-3.5 ${cancelling ? 'text-amber-400' : 'text-primary animate-pulse'}`} />
                 <span>Elapsed: <strong className="text-foreground font-semibold">{elapsedSeconds}s</strong></span>
               </div>
               <div className="text-[11px] text-muted-foreground/80 mt-0.5">
-                Estimated: ~90–120s (10 cases)
+                {cancelling ? (
+                  <span className="text-amber-400 font-semibold animate-pulse">Cancelling...</span>
+                ) : (
+                  'Estimated: ~90–120s (10 cases)'
+                )}
               </div>
             </div>
           </div>
 
-          {/* Animated Progress Bar */}
+          {/* Animated Progress Bar (increases when evaluating, decreases backwards when cancelling) */}
           <div className="space-y-2">
-            <div className="h-2 w-full bg-muted/40 rounded-full overflow-hidden p-0.5 border border-border/40">
+            <div className="h-2.5 w-full bg-muted/40 rounded-full overflow-hidden p-0.5 border border-border/40">
               <div
-                className="h-full bg-gradient-to-r from-primary via-emerald-500 to-primary rounded-full transition-all duration-500 animate-pulse"
+                className={`h-full rounded-full transition-all ${
+                  cancelling 
+                    ? 'bg-gradient-to-r from-red-500 via-amber-500 to-amber-400 duration-100' 
+                    : 'bg-gradient-to-r from-primary via-emerald-500 to-primary duration-500 animate-pulse'
+                }`}
                 style={{
-                  width: `${Math.min(95, Math.max(6, Math.round((elapsedSeconds / 105) * 100)))}%`
+                  width: `${progressPercent}%`
                 }}
               />
             </div>
             <div className="flex justify-between text-[11px] text-muted-foreground">
-              <span>Evaluating case {Math.min(10, Math.floor(elapsedSeconds / 10.5) + 1)} of ~10</span>
-              <span>{Math.min(95, Math.max(6, Math.round((elapsedSeconds / 105) * 100)))}% estimated</span>
+              <span>
+                {cancelling ? (
+                  <span className="text-amber-400 font-medium">Reversing execution pipeline...</span>
+                ) : (
+                  `Evaluating case ${Math.min(10, Math.floor(elapsedSeconds / 10.5) + 1)} of ~10`
+                )}
+              </span>
+              <span className={`font-mono font-semibold ${cancelling ? 'text-amber-400' : 'text-primary'}`}>
+                {cancelling ? `Cancelling: ${progressPercent}%` : `${progressPercent}% estimated`}
+              </span>
             </div>
           </div>
 
