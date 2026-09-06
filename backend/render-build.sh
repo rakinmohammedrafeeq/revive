@@ -12,13 +12,15 @@ apt-get update -qq
 apt-get install -y -qq python3 python3-pip python3-venv > /dev/null 2>&1
 
 # Install ML dependencies with minimal output
+# Match versions with the model training environment
 pip3 install --no-cache-dir --quiet \
-  scikit-learn==1.3.0 \
-  pandas==2.0.3 \
-  numpy==1.24.3 \
-  joblib==1.3.2
+  scikit-learn==1.5.2 \
+  pandas==2.2.3 \
+  numpy==2.0.2 \
+  joblib==1.4.2
 
 echo "✅ Python dependencies installed"
+echo "   scikit-learn: $(python3 -c 'import sklearn; print(sklearn.__version__)')"
 
 echo "======================================"
 echo "🏗️  Building Spring Boot (Low Memory Mode)..."
