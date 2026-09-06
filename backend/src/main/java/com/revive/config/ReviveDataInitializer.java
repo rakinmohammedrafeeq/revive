@@ -25,6 +25,7 @@ import java.util.Map;
  * This is a separate initializer from DataInitializer to avoid interference.
  */
 @Configuration
+@Profile("!prod")  // Disable in production
 public class ReviveDataInitializer {
 
     private static final Logger logger = LoggerFactory.getLogger(ReviveDataInitializer.class);
