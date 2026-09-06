@@ -63,7 +63,7 @@ public class RecoveryMetricsService {
     }
 
     /** Calculate recovery metrics for workspace within optional time range */
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = true, timeout = 30)  // 30 second timeout
     public RecoveryMetricsResponse calculateMetrics(
             Long workspaceId,
             LocalDateTime startDate,
