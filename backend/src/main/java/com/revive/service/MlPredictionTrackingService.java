@@ -55,10 +55,10 @@ public class MlPredictionTrackingService {
             PredictionMethod method,
             Workspace workspace) {
         
-        // Check if prediction already exists
+        // Check if prediction already exists - return existing to prevent duplicate key error
         Optional<MlPrediction> existing = mlPredictionRepository.findByFailedPaymentId(payment.getId());
         if (existing.isPresent()) {
-            logger.debug("Prediction already exists for payment {}", payment.getId());
+            logger.debug("Prediction already exists for payment {} - returning existing", payment.getId());
             return existing.get();
         }
 
@@ -87,12 +87,18 @@ public class MlPredictionTrackingService {
                 .predictedAt(LocalDateTime.now())
                 .build();
 
-        MlPrediction saved = mlPredictionRepository.save(prediction);
-        
-        logger.info("Tracked ML prediction for payment {}: probability={}, method={}", 
-                payment.getPaymentIdentifier(), predictedProbability, method);
-        
-        return saved;
+        try {
+            MlPrediction saved = mlPredictionRepository.save(prediction);
+            logger.info("Tracked ML prediction for payment {}: probability={}, method={}", 
+                    payment.getPaymentIdentifier(), predictedProbability, method);
+            return saved;
+        } catch (Exception e) {
+            // Handle race condition - another thread may have created the prediction
+            logger.warn("Failed to save prediction for payment {}, checking if it exists: {}", 
+                    payment.getId(), e.getMessage());
+            return mlPredictionRepository.findByFailedPaymentId(payment.getId())
+                    .orElseThrow(() -> new RuntimeException("Failed to track or retrieve prediction", e));
+        }
     }
 
     /**

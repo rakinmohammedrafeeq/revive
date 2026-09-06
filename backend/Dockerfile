@@ -47,7 +47,7 @@ RUN useradd -m -u 1001 appuser && \
 COPY --from=builder --chown=appuser:appuser /build/target/app.jar app.jar
 
 # Copy ML model and prediction script (critical for recovery predictions)
-COPY --chown=appuser:appuser ../ml /app/ml
+COPY --chown=appuser:appuser ml /app/ml
 
 # Switch to non-root user
 USER appuser
