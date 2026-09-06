@@ -42,6 +42,8 @@ public class AiModelFallbackService {
         addModelIfPresent(textModels, dotenv, "GEMINI_TEXT_FALLBACK2", ModelProvider.GEMINI);
         addModelIfPresent(textModels, dotenv, "GEMINI_TEXT_FALLBACK3", ModelProvider.GEMINI);
         addModelIfPresent(textModels, dotenv, "GROQ_TEXT_MODEL", ModelProvider.GROQ);
+        addModelIfPresent(textModels, dotenv, "GROQ_TEXT_FALLBACK1", ModelProvider.GROQ);
+        addModelIfPresent(textModels, dotenv, "GROQ_TEXT_FALLBACK2", ModelProvider.GROQ);
 
         // Retry configuration
         this.maxRetryAttempts = Integer.parseInt(dotenv.get("AI_RETRY_ATTEMPTS", "3"));
@@ -155,9 +157,50 @@ public class AiModelFallbackService {
                     continue;
                 }
 
-                // For other errors, fail immediately (don't waste quota on other models)
-                logger.error("{} {} model failed with non-rate-limit error: {} ({})", 
+                // Check if it's a model not found error (404, invalid model)
+                if (isModelNotFoundError(errorMessage)) {
+                    logger.error("{} {} model not found: {} ({}). Trying fallback...", 
+                            type, modelLabel, modelConfig.modelName, modelConfig.provider);
+                    
+                    if (i < models.size() - 1) {
+                        try {
+                            Thread.sleep(retryDelayMs);
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                        }
+                    }
+                    continue;
+                }
+
+                // Check if it's an API key error
+                if (isApiKeyError(errorMessage)) {
+                    logger.error("{} {} model API key invalid: {} ({}). Trying fallback...", 
+                            type, modelLabel, modelConfig.modelName, modelConfig.provider);
+                    
+                    if (i < models.size() - 1) {
+                        try {
+                            Thread.sleep(retryDelayMs);
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                        }
+                    }
+                    continue;
+                }
+
+                // For other errors, try fallback anyway (defensive)
+                logger.error("{} {} model failed: {} ({}). Trying fallback...", 
                         type, modelLabel, e.getMessage(), modelConfig.provider);
+                
+                if (i < models.size() - 1) {
+                    try {
+                        Thread.sleep(retryDelayMs);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
+                    continue;
+                }
+                
+                // Last model - throw the error
                 throw e;
             }
         }
@@ -188,6 +231,30 @@ public class AiModelFallbackService {
                errorMessage.contains("quota exceeded") ||
                errorMessage.contains("insufficient quota") ||
                errorMessage.contains("quota_exceeded");
+    }
+
+    /**
+     * Check if error is a model not found error (404)
+     */
+    private boolean isModelNotFoundError(String errorMessage) {
+        return errorMessage.contains("404") ||
+               errorMessage.contains("not found") ||
+               errorMessage.contains("model_not_found") ||
+               errorMessage.contains("does not exist") ||
+               errorMessage.contains("invalid model") ||
+               errorMessage.contains("unknown model");
+    }
+
+    /**
+     * Check if error is an API key error
+     */
+    private boolean isApiKeyError(String errorMessage) {
+        return errorMessage.contains("api key") ||
+               errorMessage.contains("api_key") ||
+               errorMessage.contains("invalid key") ||
+               errorMessage.contains("authentication") ||
+               errorMessage.contains("unauthorized") ||
+               errorMessage.contains("401");
     }
 
     /**

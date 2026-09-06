@@ -80,6 +80,10 @@ services:
         sync: false
       - key: GROQ_TEXT_MODEL
         value: llama-3.1-8b-instant
+      - key: GROQ_TEXT_FALLBACK1
+        value: llama-3.3-70b-versatile
+      - key: GROQ_TEXT_FALLBACK2
+        value: llama-3.1-70b-versatile
       - key: GROQ_VISION_MODEL
         value: llama-3.2-90b-vision-preview
       
