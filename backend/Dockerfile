@@ -30,8 +30,8 @@ RUN apt-get update && \
     apt-get install -y curl python3 python3-pip python3-venv && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Python ML dependencies
-RUN pip3 install --no-cache-dir \
+# Install Python ML dependencies (bypass PEP 668 for Docker container)
+RUN pip3 install --no-cache-dir --break-system-packages \
     scikit-learn==1.3.0 \
     pandas==2.0.3 \
     numpy==1.24.3 \
