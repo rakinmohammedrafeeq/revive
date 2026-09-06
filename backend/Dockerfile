@@ -25,9 +25,15 @@ RUN mvn clean package -B -q -DskipTests && \
 # Stage 2: Runtime Stage (lightweight JRE image + Python for ML)
 FROM eclipse-temurin:17-jre
 
-# Install Python, pip, and curl for ML predictions and health checks
+# Install Python, pip, curl, and build tools for ML packages
 RUN apt-get update && \
-    apt-get install -y curl python3 python3-pip python3-venv && \
+    apt-get install -y \
+        curl \
+        python3 \
+        python3-pip \
+        python3-venv \
+        build-essential \
+        python3-dev && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Python ML dependencies (bypass PEP 668 for Docker container)
