@@ -47,8 +47,8 @@ public class GroqAiService {
         // Load from environment
         Dotenv dotenv = Dotenv.configure().ignoreIfMissing().load();
         this.apiKey = dotenv.get("GROQ_API_KEY");
-        // Using Llama 3.1 8B - much faster, still very capable for chat
-        this.model = dotenv.get("GROQ_MODEL", "llama-3.1-8b-instant");
+        // Using Llama 3.3 70B - fast, high quality, and officially supported
+        this.model = dotenv.get("GROQ_MODEL", "llama-3.3-70b-versatile");
         
         if (apiKey == null || apiKey.isBlank()) {
             logger.warn("GROQ_API_KEY not configured. Text-based AI features will be disabled.");

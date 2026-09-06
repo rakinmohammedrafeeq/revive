@@ -316,6 +316,10 @@ export const recoveryAdminApi = {
   runBatchEvaluation: () =>
     apiClient.post<BatchValidationResult>('/recovery/batch/evaluate').then((r) => r.data),
 
+  /** Get historical batch evaluation runs */
+  getBatchHistory: () =>
+    apiClient.get<BatchValidationResult[]>('/recovery/batch/history').then((r) => r.data),
+
   /** Dataset statistics and ML model summary */
   getDemoStats: () =>
     apiClient.get<Record<string, unknown>>('/recovery/demo/stats').then((r) => r.data),

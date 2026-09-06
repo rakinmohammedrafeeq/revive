@@ -40,6 +40,7 @@ public class RecoveryPredictionModel {
 
     private final ObjectMapper objectMapper;
     private boolean loggedPythonWarning = false;
+    private volatile boolean pythonDisabled = false;
 
     // Rule-based fallback weights — calibrated from Random Forest feature importances
     // error_code is most important (0.28), followed by time_since_failure (0.12), amount (0.11)
@@ -48,6 +49,16 @@ public class RecoveryPredictionModel {
 
     public RecoveryPredictionModel(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
+
+        io.github.cdimascio.dotenv.Dotenv dotenv = io.github.cdimascio.dotenv.Dotenv.configure().ignoreIfMissing().load();
+        String disabledEnv = dotenv.get("DISABLE_PYTHON_ML");
+        if (disabledEnv == null) {
+            disabledEnv = dotenv.get("DISABLE_PYTHON_SUBPROCESS");
+        }
+        if ("true".equalsIgnoreCase(disabledEnv) || "true".equalsIgnoreCase(System.getProperty("revive.ml.python-subprocess-disabled"))) {
+            this.pythonDisabled = true;
+            logger.info("Python ML subprocess explicitly disabled. Using pure-Java calibrated prediction model.");
+        }
 
         // Calibrated from training data feature importances
         fallbackWeights.put("amount_log", -0.12);
@@ -61,7 +72,8 @@ public class RecoveryPredictionModel {
         fallbackWeights.put("has_customer_email", 0.18);
         fallbackWeights.put("has_customer_phone", 0.14);
 
-        logger.info("RecoveryPredictionModel initialized. Python script path: {}", PYTHON_SCRIPT);
+        logger.info("RecoveryPredictionModel initialized. Python script path: {}, pythonDisabled: {}",
+                PYTHON_SCRIPT, pythonDisabled);
     }
 
     /**
@@ -71,26 +83,28 @@ public class RecoveryPredictionModel {
      * @return Recovery probability between 0.05 and 0.95
      */
     public double predictRecoveryProbability(FailedPayment payment) {
-        // Primary: try the Python-trained model
-        File scriptFile = new File(PYTHON_SCRIPT);
-        if (scriptFile.exists()) {
-            try {
-                double pyProbability = callPythonModel(payment);
-                logger.debug("Python ML prediction for {}: {:.4f}",
-                        payment.getPaymentIdentifier(), pyProbability);
-                return pyProbability;
-            } catch (Exception e) {
-                // Only log once per session to avoid spam
-                if (!loggedPythonWarning) {
-                    logger.warn("Python model unavailable, using rule-based fallback for all predictions");
-                    loggedPythonWarning = true;
+        // Primary: try the Python-trained model if not circuit-broken
+        if (!pythonDisabled) {
+            File scriptFile = new File(PYTHON_SCRIPT);
+            if (scriptFile.exists()) {
+                try {
+                    double pyProbability = callPythonModel(payment);
+                    logger.debug("Python ML prediction for {}: {:.4f}",
+                            payment.getPaymentIdentifier(), pyProbability);
+                    return pyProbability;
+                } catch (Exception e) {
+                    // Trip circuit breaker to avoid blocking future requests
+                    pythonDisabled = true;
+                    if (!loggedPythonWarning) {
+                        logger.warn("Python model failed ({}), circuit breaker enabled: switching to calibrated Java prediction",
+                                e.getMessage());
+                        loggedPythonWarning = true;
+                    }
                 }
-                logger.debug("Python call failed for {}: {}", 
-                        payment.getPaymentIdentifier(), e.getMessage());
             }
         }
 
-        // Fallback: use rule-based heuristics
+        // Fallback: use calibrated rule-based heuristics
         return ruleBasedPrediction(payment);
     }
 
@@ -123,10 +137,10 @@ public class RecoveryPredictionModel {
             }
         }
 
-        boolean finished = process.waitFor(3, TimeUnit.SECONDS);
+        boolean finished = process.waitFor(1500, TimeUnit.MILLISECONDS);
         if (!finished) {
             process.destroyForcibly();
-            throw new TimeoutException("Python prediction timed out after 3 seconds");
+            throw new TimeoutException("Python prediction timed out after 1500ms");
         }
 
         int exitCode = process.exitValue();

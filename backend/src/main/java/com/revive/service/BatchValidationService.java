@@ -88,7 +88,14 @@ public class BatchValidationService {
         result.setTotalRecords(eligiblePayments.size());
         result.setEligibleRecoveryCount(eligiblePayments.size());
 
-        logger.info("Found {} eligible FAILED payments for recovery", eligiblePayments.size());
+        // Cap batch processing to a sensible maximum (15 payments per batch) to ensure execution completes in ~15-20s
+        int maxBatchSize = 15;
+        List<FailedPayment> batchToProcess = eligiblePayments.size() > maxBatchSize
+                ? eligiblePayments.subList(0, maxBatchSize)
+                : eligiblePayments;
+
+        logger.info("Found {} eligible FAILED payments for recovery (processing batch of {} in this run)",
+                eligiblePayments.size(), batchToProcess.size());
 
         // Track outcomes
         int processed = 0;
@@ -108,8 +115,8 @@ public class BatchValidationService {
         
         long auditEventsBefore = auditTrailRepository.countByWorkspaceId(workspaceId);
 
-        // Process each payment
-        for (FailedPayment payment : eligiblePayments) {
+        // Process each payment in the batch
+        for (FailedPayment payment : batchToProcess) {
             try {
                 logger.info("Processing payment: {} ({})", 
                         payment.getPaymentIdentifier(), payment.getErrorCode());
@@ -177,7 +184,7 @@ public class BatchValidationService {
 
                 // Keep sample results (first 15 + last 5)
                 if (sampleResults.size() < 15 || 
-                    eligiblePayments.indexOf(payment) >= eligiblePayments.size() - 5) {
+                    batchToProcess.indexOf(payment) >= batchToProcess.size() - 5) {
                     sampleResults.add(record);
                 }
 
