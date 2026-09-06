@@ -8,7 +8,9 @@ import org.hibernate.annotations.Type;
 import io.hypersistence.utils.hibernate.type.json.JsonBinaryType;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 
 /**
  * Represents a failed payment that requires recovery action.
@@ -151,15 +153,18 @@ public class FailedPayment {
 
     @PrePersist
     protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
+        // Use UTC time explicitly to avoid timezone inconsistencies
+        LocalDateTime utcNow = LocalDateTime.now(ZoneOffset.UTC);
+        this.createdAt = utcNow;
+        this.updatedAt = utcNow;
         if (this.failedAt == null) {
-            this.failedAt = LocalDateTime.now();
+            this.failedAt = utcNow;
         }
     }
 
     @PreUpdate
     protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
+        // Use UTC time explicitly
+        this.updatedAt = LocalDateTime.now(ZoneOffset.UTC);
     }
 }

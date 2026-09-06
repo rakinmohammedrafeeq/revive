@@ -95,7 +95,7 @@ public class RecoveryPredictionModel {
         Map<String, Object> paymentData = buildPaymentDataMap(payment);
         String jsonInput = objectMapper.writeValueAsString(paymentData);
 
-        ProcessBuilder pb = new ProcessBuilder("python", PYTHON_SCRIPT, jsonInput);
+        ProcessBuilder pb = new ProcessBuilder("python3", PYTHON_SCRIPT, jsonInput);
         pb.redirectErrorStream(true);
         Process process = pb.start();
 
