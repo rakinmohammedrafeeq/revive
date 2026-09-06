@@ -75,6 +75,10 @@ public class AiRecoveryDiagnosisService {
         }
     }
 
+    private final Set<String> disabledModels = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    private volatile boolean groqDisabled = false;
+    private volatile boolean geminiDisabled = false;
+
     /**
      * Diagnose a failed payment and recommend recovery action.
      * Tries Groq models first, cascades to Gemini, and defaults to deterministic safe fallback.
@@ -83,8 +87,11 @@ public class AiRecoveryDiagnosisService {
         String prompt = buildDiagnosisPrompt(payment);
 
         // 1. Try Groq models first (lowest latency)
-        if (groqApiKey != null && !groqApiKey.isBlank()) {
+        if (groqApiKey != null && !groqApiKey.isBlank() && !groqDisabled) {
             for (String model : groqModels) {
+                if (disabledModels.contains(model)) {
+                    continue;
+                }
                 try {
                     logger.debug("Attempting AI recovery diagnosis with Groq model: {}", model);
                     String response = callGroqApi(prompt, model);
@@ -95,15 +102,28 @@ public class AiRecoveryDiagnosisService {
                         return result;
                     }
                 } catch (Exception e) {
-                    logger.warn("Groq model [{}] failed for payment {}: {}. Trying next fallback...",
-                            model, payment.getPaymentIdentifier(), e.getMessage());
+                    String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
+                    if (msg.contains("404") || msg.contains("model_not_found") || msg.contains("does not exist")) {
+                        logger.warn("Groq model [{}] does not exist (404). Disabling it for future calls.", model);
+                        disabledModels.add(model);
+                    } else if (msg.contains("401") || msg.contains("invalid api key") || msg.contains("unauthorized")) {
+                        logger.warn("Groq authentication failed (401). Disabling Groq and switching directly to Gemini.");
+                        groqDisabled = true;
+                        break;
+                    } else {
+                        logger.warn("Groq model [{}] failed for payment {}: {}. Trying next fallback...",
+                                model, payment.getPaymentIdentifier(), e.getMessage());
+                    }
                 }
             }
         }
 
         // 2. Try Gemini models as cross-provider fallback
-        if (geminiApiKey != null && !geminiApiKey.isBlank()) {
+        if (geminiApiKey != null && !geminiApiKey.isBlank() && !geminiDisabled) {
             for (String model : geminiModels) {
+                if (disabledModels.contains(model)) {
+                    continue;
+                }
                 try {
                     logger.debug("Attempting AI recovery diagnosis with Gemini model: {}", model);
                     String response = callGeminiApi(prompt, model);
@@ -114,8 +134,18 @@ public class AiRecoveryDiagnosisService {
                         return result;
                     }
                 } catch (Exception e) {
-                    logger.warn("Gemini model [{}] failed for payment {}: {}. Trying next fallback...",
-                            model, payment.getPaymentIdentifier(), e.getMessage());
+                    String msg = e.getMessage() != null ? e.getMessage().toLowerCase() : "";
+                    if (msg.contains("404") || msg.contains("not found") || msg.contains("does not exist")) {
+                        logger.warn("Gemini model [{}] does not exist (404). Disabling it for future calls.", model);
+                        disabledModels.add(model);
+                    } else if (msg.contains("401") || msg.contains("invalid key") || msg.contains("unauthorized")) {
+                        logger.warn("Gemini authentication failed (401). Disabling Gemini.");
+                        geminiDisabled = true;
+                        break;
+                    } else {
+                        logger.warn("Gemini model [{}] failed for payment {}: {}. Trying next fallback...",
+                                model, payment.getPaymentIdentifier(), e.getMessage());
+                    }
                 }
             }
         }
